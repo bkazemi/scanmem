@@ -27,6 +27,7 @@
 
 #include <stdbool.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 #include "list.h"
 
