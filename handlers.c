@@ -28,6 +28,9 @@
 
 #include "config.h"
 
+#ifdef HAVE_ALLOCA_H
+#include <alloca.h>
+#endif
 #include <stdio.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -36,8 +39,7 @@
 #include <signal.h>
 #include <assert.h>
 #include <setjmp.h>
-#include <alloca.h>
-#include <strings.h>
+#include <strings.h>            /*lint -esym(526,strcasecmp) */
 #include <string.h>
 #include <stdbool.h>
 #include <time.h>
