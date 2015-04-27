@@ -45,6 +45,12 @@
 #include "scanmem.h"
 #include "show_message.h"
 
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+#define MAPS_NAME "map"
+#else
+#define MAPS_NAME "maps"
+#endif
+
 const char *region_type_names[] = REGION_TYPE_NAMES;
 
 bool sm_readmaps(pid_t target, list_t *regions)
@@ -67,7 +73,7 @@ bool sm_readmaps(pid_t target, list_t *regions)
         return false;
 
     /* construct the maps filename */
-        snprintf(name, sizeof(name), "/proc/%u/maps", target);
+        snprintf(name, sizeof(name), "/proc/%u/" MAPS_NAME, target);
 
         /* attempt to open the maps file */
         if ((maps = fopen(name, "r")) == NULL) {
