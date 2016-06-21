@@ -23,8 +23,9 @@
 #include <setjmp.h>
 #include <signal.h>
 
-/* dirty hack for FreeBSD */
-#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+/* dirty hack for BSD */
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__NetBSD__) || \
+    defined(__OpenBSD__) || defined(__bsdi__) || defined(__DragonFly__)
 typedef sig_t sighandler_t;
 #endif
 

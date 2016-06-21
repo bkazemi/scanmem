@@ -10,6 +10,8 @@ LT_INIT
 
 IT_PROG_INTLTOOL
 
+AC_CHECK_FUNCS(memset strcasecmp strchr strdup strerror strtoul getline)
+
 if test "x$ac_cv_func_getline" = "xno"; then
   AC_CHECK_FUNCS(fgetln)
   if test "x$ac_cv_func_fgetln" = "xno"; then
@@ -19,8 +21,6 @@ if test "x$ac_cv_func_getline" = "xno"; then
   fi
 fi
 AM_CONDITIONAL([HAVE_GETLINE], [test "x$ac_cv_func_getline" != "xno"])
-
-AC_CHECK_FUNCS(memset strcasecmp strchr strdup strerror strtoul pread)
 
 AC_CHECK_HEADERS(fcntl.h limits.h stddef.h sys/time.h)
 
@@ -42,6 +42,12 @@ AC_TYPE_SSIZE_T
 
 AC_C_BIGENDIAN
 
+# BSD uses `curproc` instead of `self`
+# and `map` instead of `maps` in /proc
+# we reset these variables as needed
+self="self"
+maps="maps"
+
 # Detect the host OS
 android="no"
 AC_CANONICAL_HOST
@@ -53,15 +59,17 @@ case "$host_os" in
   linux*)
     AC_MSG_NOTICE([Linux detected])
     ;;
+  *bsd*)
+    AC_MSG_NOTICE([BSD detected])
+    self="curproc"
+    maps="map"
+    ;;
   *)
     AC_MSG_NOTICE([Your platform is not currently supported])
     ;;
 esac
 
 AS_IF([test "x$android" = "xno"], [
-  # also need to check if the file is zero'ed (some hardened systems)
-  AC_CHECK_FILE([/proc/self/maps], [], [
-
   AC_MSG_CHECKING(whether /proc is mounted)
   if test "x`mount | grep -o ' on /proc '`" != "x on /proc "; then
     AC_MSG_RESULT(no)
@@ -70,33 +78,21 @@ AS_IF([test "x$android" = "xno"], [
     AC_MSG_RESULT(yes)
   fi
 
-self="/proc/self"
-maps_name="maps"
-AC_MSG_CHECKING(whether $self exists)
-if test -d $self; then
+  AC_MSG_CHECKING(whether /proc/${self} exists)
+  if test -d /proc/${self}; then
     AC_MSG_RESULT(yes)
-else
+  else
     AC_MSG_RESULT(no)
-    self="/proc/curproc"
-    AC_MSG_CHECKING(whether $self exists)
-    if test -d $self; then
-        AC_MSG_RESULT(yes)
-        maps_name="map"
-    else
-        AC_MSG_RESULT(no)
-        AC_MSG_ERROR(No directory for current process found., 1)
-    fi
-fi
-maps="$self/$maps_name"
-pid_maps="/proc/pid/$maps_name"
+    AC_MSG_ERROR(No directory for current process found., 1)
+  fi
 
-# also need to check if the file is zero'ed (some hardened systems)
-AC_CHECK_FILE([$maps], [], [
-    AC_MSG_ERROR(This system does not seem to have $pid_maps files., 1)
-])
+  AC_CHECK_FILE([/proc/${self}/${maps}], [], [
+    echo "This system does not seem to have /proc/${self}/${maps} files."
+    exit 1
+  ])
 
-# also need to check this file works
-AC_CHECK_FILE([$self/mem], [
+  # also need to check this file works
+  AC_CHECK_FILE([/proc/${self}/mem], [
     # LARGEFILE support required for this to work
     AC_SYS_LARGEFILE
     AC_DEFINE(HAVE_PROCMEM, [1], [Enable /proc/pid/mem support])

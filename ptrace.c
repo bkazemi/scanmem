@@ -46,14 +46,28 @@
 # define EXPECT(x,y) x
 #endif
 
-/* Dirty hack for FreeBSD */
-#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || \
+    defined(__NetBSD__)  || defined(__OpenBSD__)        || \
+    defined(__bsdi__)    || defined(__DragonFly__)
+# define OS_IS_BSD
+#else
+# undef OS_IS_BSD /* just in case */
+#endif
+
+/* Dirty hacks for BSD */
+#ifdef OS_IS_BSD
 enum __ptrace_request {
     PTRACE_ATTACH   = PT_ATTACH,
     PTRACE_DETACH   = PT_DETACH,
     PTRACE_PEEKDATA = PT_READ_D,
     PTRACE_POKEDATA = PT_WRITE_D
 };
+
+typedef caddr_t ptrace_addr_t;
+typedef int     ptrace_data_t;
+#else
+typedef void * ptrace_addr_t;
+typedef long   ptrace_data_t;
 #endif
 
 #include "value.h"
@@ -73,16 +87,11 @@ enum __ptrace_request {
 #define PROGRESS_PER_SAMPLE (MAX_PROGRESS / NUM_SAMPLES)
 
 /* wrapper to support different ptrace variants */
-static inline long run_ptrace(enum __ptrace_request request, pid_t pid,
-                              void *addr, long data)
+static inline ptrace_data_t run_ptrace(enum __ptrace_request request, pid_t pid,
+                              ptrace_addr_t addr, ptrace_data_t data)
 {
-#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-    if (sizeof(long) == sizeof(int)) {
-        return ptrace(request, pid, addr, (int)data);
-    } else {
-        errno = EINVAL;
-        return -1;
-    }
+#ifdef OS_IS_BSD
+    return ptrace(request, pid, addr, data);
 #else
     return ptrace(request, pid, addr, (void *)data);
 #endif
@@ -128,7 +137,7 @@ bool sm_attach(pid_t target)
 bool sm_detach(pid_t target)
 {
     // addr is ignored on Linux, but should be 1 on FreeBSD in order to let the child process continue execution where it had been interrupted
-    return run_ptrace(PTRACE_DETACH, target, (void *)1, 0) == 0;
+    return run_ptrace(PTRACE_DETACH, target, (ptrace_addr_t)1, 0) == 0;
 }
 
 
@@ -167,15 +176,15 @@ bool sm_peekdata(pid_t pid, const void *addr, value_t * result)
         assert(peekbuf.size != 0);
 
         /* partial hit, we have some of the data but not all, so remove old entries - shift the frame by as far as is necessary */
-        /* tail shift, round up to nearest long size for ptrace efficiency */
+        /* tail shift, round up to nearest data size for ptrace efficiency */
         shift_size1 = (reqaddr + sizeof(int64_t)) - (peekbuf.base + peekbuf.size);
-        shift_size1 = sizeof(long) * (1 + (shift_size1-1) / sizeof(long));
+        shift_size1 = sizeof(ptrace_data_t) * (1 + (shift_size1-1) / sizeof(ptrace_data_t));
 
         /* head shift if necessary */
         if (peekbuf.size + shift_size1 > MAX_PEEKBUF_SIZE) 
         {
             shift_size2 = reqaddr-peekbuf.base;
-            shift_size2 = sizeof(long) * (shift_size2 / sizeof(long));
+            shift_size2 = sizeof(ptrace_data_t) * (shift_size2 / sizeof(ptrace_data_t));
 
             for (i = shift_size2; i < peekbuf.size; ++i)
             {
@@ -196,36 +205,36 @@ bool sm_peekdata(pid_t pid, const void *addr, value_t * result)
     /* we need a ptrace() to complete the request */
     errno = 0;
     
-    for (i = 0; i < shift_size1; i += sizeof(long))
+    for (i = 0; i < shift_size1; i += sizeof(ptrace_data_t))
     {
-        char *ptrace_address = peekbuf.base + peekbuf.size;
-        long ptraced_long = run_ptrace(PTRACE_PEEKDATA, pid, ptrace_address, 0);
+        char *pt_addr = peekbuf.base + peekbuf.size;
+        ptrace_data_t ptraced_data = run_ptrace(PTRACE_PEEKDATA, pid, (ptrace_addr_t)pt_addr, 0);
 
         /* check if ptrace() succeeded */
-        if (EXPECT(ptraced_long == -1L && errno != 0, false)) {
+        if (EXPECT(ptraced_data == -1L && errno != 0, false)) {
             /* it's possible i'm trying to read partially oob */
             if (errno == EIO || errno == EFAULT) {
                 
                 /* read backwards until we get a good read, then shift out the right value */
-                for (j = 1, errno = 0; j < sizeof(long); j++, errno = 0) {
+                for (j = 1, errno = 0; j < sizeof(ptrace_data_t); j++, errno = 0) {
                 
                     /* try for a shifted ptrace - 'continue' (i.e. try an increased shift) if it fails */
-                    if ((ptraced_long = run_ptrace(PTRACE_PEEKDATA, pid, ptrace_address - j, 0)) == -1L &&
+                    if ((ptraced_data = run_ptrace(PTRACE_PEEKDATA, pid, (ptrace_addr_t)(pt_addr - j), 0)) == -1L &&
                         (errno == EIO || errno == EFAULT))
                             continue;
                     
                     /* cache it with the appropriate offset */
                     if(peekbuf.size >= j)
                     {
-                        memcpy(&peekbuf.cache[peekbuf.size - j], &ptraced_long, sizeof(long));
+                        memcpy(&peekbuf.cache[peekbuf.size - j], &ptraced_data, sizeof(ptrace_data_t));
                     }
                     else
                     {
-                        memcpy(&peekbuf.cache[0], &ptraced_long, sizeof(long));
+                        memcpy(&peekbuf.cache[0], &ptraced_data, sizeof(ptrace_data_t));
                         peekbuf.base -= j;
                     }
-                    peekbuf.size += sizeof(long) - j;
-                    last_address_gathered = ptrace_address + sizeof(long) - j;
+                    peekbuf.size += sizeof(ptrace_data_t) - j;
+                    last_address_gathered = pt_addr + sizeof(ptrace_data_t) - j;
                     
                     /* interrupt the gathering process */
                     goto doublebreak;
@@ -237,9 +246,9 @@ bool sm_peekdata(pid_t pid, const void *addr, value_t * result)
         }
         
         /* otherwise, ptrace() worked - cache the data and increase the size */
-        memcpy(&peekbuf.cache[peekbuf.size], &ptraced_long, sizeof(long));
-        peekbuf.size += sizeof(long);
-        last_address_gathered = ptrace_address + sizeof(long);
+        memcpy(&peekbuf.cache[peekbuf.size], &ptraced_data, sizeof(ptrace_data_t));
+        peekbuf.size += sizeof(ptrace_data_t);
+        last_address_gathered = pt_addr + sizeof(ptrace_data_t);
     }
     
     doublebreak:
@@ -341,11 +350,12 @@ bool sm_checkmatches(globals_t *vars,
         value_t data_value;
         match_flags checkflags;
 
-        void *address = reading_swath.first_byte_in_child + reading_iterator;
+        void *pt_addr = reading_swath.first_byte_in_child + reading_iterator;
         
         /* read value from this address */
-        if (EXPECT(sm_peekdata(vars->target, address, &data_value) == false, false)) {
+        if (EXPECT(sm_peekdata(vars->target, (ptrace_addr_t)pt_addr, &data_value) == false, false)) {
             /* Uhh, what? We couldn't look at the data there? I guess this doesn't count as a match then */
+            /* XXX: probably a bug, no? */
         }
         else
         {
@@ -360,7 +370,7 @@ bool sm_checkmatches(globals_t *vars,
 
             zero_match_flags(&checkflags);
 
-            match_length = (*sm_scan_routine)(&data_value, &old_val, uservalue, &checkflags, address);
+            match_length = (*sm_scan_routine)(&data_value, &old_val, uservalue, &checkflags, pt_addr);
         }
         
         if (match_length > 0)
@@ -370,7 +380,7 @@ bool sm_checkmatches(globals_t *vars,
                 (We can get away with assuming that the pointers will stay valid, because as we never add more data to the array than there was before, it will not reallocate.) */
           
             old_value_and_match_info new_value = { get_u8b(&data_value), checkflags };
-            writing_swath_index = add_element((&vars->matches), writing_swath_index, address, &new_value);
+            writing_swath_index = add_element((&vars->matches), writing_swath_index, pt_addr, &new_value);
             
             ++vars->num_matches;
             
@@ -379,7 +389,7 @@ bool sm_checkmatches(globals_t *vars,
         else if (required_extra_bytes_to_record)
         {
             old_value_and_match_info new_value = { get_u8b(&data_value), zero_flag };
-            writing_swath_index = add_element(&vars->matches, writing_swath_index, address, &new_value);
+            writing_swath_index = add_element(&vars->matches, writing_swath_index, pt_addr, &new_value);
             --required_extra_bytes_to_record;
         }
 
@@ -671,14 +681,15 @@ bool sm_searchregions(globals_t *vars, scan_match_type_t match_type, const userv
 bool sm_setaddr(pid_t target, void *addr, const value_t *to)
 {
     value_t saved;
+    ptrace_addr_t pt_addr = addr;
     unsigned int i;
 
     if (sm_attach(target) == false) {
         return false;
     }
 
-    if (sm_peekdata(target, addr, &saved) == false) {
-        show_error("couldn't access the target address %10p\n", addr);
+    if (sm_peekdata(target, pt_addr, &saved) == false) {
+        show_error("couldn't access the target address %10p\n", pt_addr);
         return false;
     }
     
@@ -700,10 +711,10 @@ bool sm_setaddr(pid_t target, void *addr, const value_t *to)
     }
 
     /* TODO: may use /proc/<pid>/mem here */
-    /* assume that sizeof(save.int64_value) (int64_t) is multiple of sizeof(long) */
-    for (i = 0; i < sizeof(saved.int64_value); i += sizeof(long)) 
+    /* assume that sizeof(save.int64_value) (int64_t) is multiple of sizeof(ptrace_data_t) */
+    for (i = 0; i < sizeof(saved.int64_value); i += sizeof(ptrace_data_t))
     {
-        if (run_ptrace(PTRACE_POKEDATA, target, addr + i, *(long *)(((int8_t *)&saved.int64_value) + i)) == -1L) {
+        if (run_ptrace(PTRACE_POKEDATA, target, pt_addr + i, *(ptrace_data_t*)(((int8_t *)&saved.int64_value) + i)) == -1L) {
             return false;
         }
     }
@@ -713,6 +724,8 @@ bool sm_setaddr(pid_t target, void *addr, const value_t *to)
 
 bool sm_read_array(pid_t target, const void *addr, char *buf, int len)
 {
+    ptrace_addr_t pt_addr = addr;
+
     if (sm_attach(target) == false) {
         return false;
     }
@@ -721,7 +734,7 @@ bool sm_read_array(pid_t target, const void *addr, char *buf, int len)
     unsigned nread=0;
     ssize_t tmpl;
     while (nread < len) {
-        if ((tmpl = readregion(target, buf+nread, len-nread, (unsigned long)(addr+nread))) == -1) {
+        if ((tmpl = readregion(target, buf+nread, len-nread, (unsigned long)(pt_addr+nread))) == -1) {
             /* no, continue with whatever data was read */
             break;
         } else {
@@ -739,13 +752,13 @@ bool sm_read_array(pid_t target, const void *addr, char *buf, int len)
     return sm_detach(target);
 #else
     int i;
-    /* here we just read long by long, this should be ok for most of time */
+    /* here we just read word by word, this should be ok for most of time */
     /* partial hit is not handled */
-    for(i = 0; i < len; i += sizeof(long))
+    for(i = 0; i < len; i += sizeof(ptrace_data_t))
     {
         errno = 0;
-        *((long *)(buf+i)) = run_ptrace(PTRACE_PEEKDATA, target, addr+i, 0);
-        if (EXPECT((*((long *)(buf+i)) == -1L) && (errno != 0), false)) {
+        *((ptrace_data_t *)(buf+i)) = run_ptrace(PTRACE_PEEKDATA, target, pt_addr+i, 0);
+        if (EXPECT((*((ptrace_data_t *)(buf+i)) == -1L) && (errno != 0), false)) {
             sm_detach(target);
             return false;
         }
@@ -759,33 +772,36 @@ bool sm_write_array(pid_t target, void *addr, const void *data, int len)
 {
     int i,j;
     long peek_value;
+    ptrace_addr_t        pt_addr = addr;
+    const ptrace_data_t *pt_data = data;
 
     if (sm_attach(target) == false) {
         return false;
     }
 
-    for (i = 0; i + sizeof(long) < len; i += sizeof(long))
+    for (i = 0; i + sizeof(ptrace_data_t) < len; i += sizeof(ptrace_data_t))
     {
-        if (run_ptrace(PTRACE_POKEDATA, target, addr + i, *(long *)(data + i)) == -1L) {
+        if (run_ptrace(PTRACE_POKEDATA, target, pt_addr + i, *(pt_data + i)) == -1L) {
             return false;
         }
     }
 
-    if (len - i > 0) /* something left (shorter than a long) */
+    if (len - i > 0) /* something left (shorter than ptrace_data_t) */
     {
-        if (len > sizeof(long)) /* rewrite last sizeof(long) bytes of the buffer */
+        if (len > sizeof(ptrace_data_t)) /* rewrite last sizeof(ptrace_data_t) bytes of the buffer */
         {
-            if (run_ptrace(PTRACE_POKEDATA, target, addr + len - sizeof(long), *(long *)(data + len - sizeof(long))) == -1L) {
+            if (run_ptrace(PTRACE_POKEDATA, target, pt_addr + len - sizeof(ptrace_data_t),
+                     *(pt_data + len - sizeof(ptrace_data_t))) == -1L) {
                 return false;
             }
         }
         else /* we have to play with bits... */
         {
             /* try all possible shifting read and write */
-            for(j = 0; j <= sizeof(long) - (len - i); ++j)
+            for(j = 0; j <= sizeof(ptrace_data_t) - (len - i); ++j)
             {
                 errno = 0;
-                if (((peek_value = run_ptrace(PTRACE_PEEKDATA, target, addr - j, 0)) == -1L) && (errno != 0))
+                if (((peek_value = run_ptrace(PTRACE_PEEKDATA, target, pt_addr - j, 0)) == -1L) && (errno != 0))
                 {
                     if (errno == EIO || errno == EFAULT) /* may try next shift */
                         continue;
@@ -798,9 +814,9 @@ bool sm_write_array(pid_t target, void *addr, const void *data, int len)
                 else /* peek success */
                 {
                     /* write back */
-                    memcpy(((int8_t*)&peek_value)+j, data+i, len-i);        
+                    memcpy(((int8_t*)&peek_value)+j, pt_data+i, len-i);
 
-                    if (run_ptrace(PTRACE_POKEDATA, target, addr - j, peek_value) == -1L)
+                    if (run_ptrace(PTRACE_POKEDATA, target, pt_addr - j, peek_value) == -1L)
                     {
                         show_error("%s failed.\n", __func__);
                         return false;

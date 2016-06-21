@@ -29,7 +29,7 @@
 #include "config.h"
 
 #ifdef HAVE_ALLOCA_H
-#include <alloca.h>
+# include <alloca.h>
 #endif
 #include <stdio.h>
 #include <sys/types.h>
@@ -45,10 +45,14 @@
 #include "scanmem.h"
 #include "show_message.h"
 
-#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-#define MAPS_NAME "map"
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || \
+    defined(__NetBSD__)  || defined(__OpenBSD__)        || \
+    defined(__bsdi__)    || defined(__DragonFly__)
+# define OS_IS_BSD
+# define PROC_MAPS_NAME "map"
+# define PROC_EXE_NAME "file"
 #else
-#define MAPS_NAME "maps"
+# define MAPS_NAME "maps"
 #endif
 
 const char *region_type_names[] = REGION_TYPE_NAMES;
@@ -83,144 +87,125 @@ bool sm_readmaps(pid_t target, list_t *regions)
 
         show_info("maps file located at %s opened.\n", name);
 
-        /* get executable name */
-        snprintf(exelink, sizeof(exelink), "/proc/%u/exe", target);
-        linkbuf_size = readlink(exelink, exename, MAX_LINKBUF_SIZE - 1);
-        if (linkbuf_size > 0)
+        /* parse each line */
+#ifdef OS_IS_BSD
+        /* XXX: missing offset, dev_{maj,min} and inode, are these even used anywhere? */
+        (void) offset;
+        (void) dev_major;
+        (void) dev_minor;
+        (void) inode;
+        if (sscanf(line, "0x%lx 0x%lx %*d %*d %*p %c%c%c %*d %*d %*x %*s %*s %*s %s %*s %*d",
+                &start, &end, &read, &write, &exec, filename) == 6)
+#else
+        if (sscanf(line, "%lx-%lx %c%c%c%c %x %x:%x %u %[^\n]", &start, &end, &read,
+                &write, &exec, &cow, &offset, &dev_major, &dev_minor, &inode, filename) >= 6)
+#endif
         {
-            exename[linkbuf_size] = 0;
-        } else {
-            /* readlink may fail for special processes, just treat as empty in
-               order not to miss those regions */
-            exename[0] = 0;
-        }
+            /*
+             * get the load address for regions of the same ELF file
+             *
+             * When the ELF loader loads an executable or a library into
+             * memory, there is one region per ELF segment created:
+             * .text (r-x), .rodata (r--), .data (rw-) and .bss (rw-). The
+             * 'x' permission of .text is used to detect the load address
+             * (region start) and the end of the ELF file in memory. All
+             * these regions have the same filename. The only exception
+             * is the .bss region. Its filename is empty and it is
+             * consecutive with the .data region. But the regions .bss and
+             * .rodata may not be present with some ELF files. This is why
+             * we can't rely on other regions to be consecutive in memory.
+             * There should never be more than these four regions.
+             * The data regions use their variables relative to the load
+             * address. So determining it makes sense as we can get the
+             * variable address used within the ELF file with it.
+             * But for the executable there is the special case that there
+             * is a gap between .text and .rodata. Other regions might be
+             * loaded via mmap() to it. So we have to count the number of
+             * regions belonging to the exe separately to handle that.
+             * References:
+             * http://en.wikipedia.org/wiki/Executable_and_Linkable_Format
+             * http://wiki.osdev.org/ELF
+             * http://lwn.net/Articles/531148/
+             */
 
-        /* read every line of the maps file */
-        while (getline(&line, &len, maps) != -1) {
-            unsigned long start, end;
-            region_t *map = NULL;
-            char read, write, exec, cow, *filename;
-            int offset, dev_major, dev_minor, inode;
-            region_type_t type = REGION_TYPE_MISC;
-
-            /* slight overallocation */
-            if ((filename = alloca(len)) == NULL) {
-                show_error("failed to allocate %lu bytes for filename.\n", (unsigned long)len);
-                goto error;
-            }
-
-            /* initialise to zero */
-            memset(filename, '\0', len);
-
-            /* parse each line */
-            if (sscanf(line, "%lx-%lx %c%c%c%c %x %x:%x %u %[^\n]", &start, &end, &read,
-                    &write, &exec, &cow, &offset, &dev_major, &dev_minor, &inode, filename) >= 6) {
-                /*
-                 * get the load address for regions of the same ELF file
-                 *
-                 * When the ELF loader loads an executable or a library into
-                 * memory, there is one region per ELF segment created:
-                 * .text (r-x), .rodata (r--), .data (rw-) and .bss (rw-). The
-                 * 'x' permission of .text is used to detect the load address
-                 * (region start) and the end of the ELF file in memory. All
-                 * these regions have the same filename. The only exception
-                 * is the .bss region. Its filename is empty and it is
-                 * consecutive with the .data region. But the regions .bss and
-                 * .rodata may not be present with some ELF files. This is why
-                 * we can't rely on other regions to be consecutive in memory.
-                 * There should never be more than these four regions.
-                 * The data regions use their variables relative to the load
-                 * address. So determining it makes sense as we can get the
-                 * variable address used within the ELF file with it.
-                 * But for the executable there is the special case that there
-                 * is a gap between .text and .rodata. Other regions might be
-                 * loaded via mmap() to it. So we have to count the number of
-                 * regions belonging to the exe separately to handle that.
-                 * References:
-                 * http://en.wikipedia.org/wiki/Executable_and_Linkable_Format
-                 * http://wiki.osdev.org/ELF
-                 * http://lwn.net/Articles/531148/
-                 */
-
-                /* detect further regions of the same ELF file and its end */
-                if (code_regions > 0) {
-                    if (exec == 'x' || (strncmp(filename, binname,
-                      MAX_LINKBUF_SIZE) != 0 && (filename[0] != '\0' ||
-                      start != prev_end)) || code_regions >= 4) {
-                        code_regions = 0;
-                        is_exe = false;
-                        /* exe with .text and without .data is impossible */
-                        if (exe_regions > 1)
-                            exe_regions = 0;
-                    } else {
-                        code_regions++;
-                        if (is_exe)
-                            exe_regions++;
-                    }
-                }
-                if (code_regions == 0) {
-                    /* detect the first region belonging to an ELF file */
-                    if (exec == 'x' && filename[0] != '\0') {
-                        code_regions++;
-                        if (strncmp(filename, exename, MAX_LINKBUF_SIZE) == 0) {
-                            exe_regions = 1;
-                            exe_load = start;
-                            is_exe = true;
-                        }
-                        strncpy(binname, filename, MAX_LINKBUF_SIZE);
-                        binname[MAX_LINKBUF_SIZE - 1] = '\0';  /* just to be sure */
-                    /* detect the second region of the exe after skipping regions */
-                    } else if (exe_regions == 1 && filename[0] != '\0' &&
-                      strncmp(filename, exename, MAX_LINKBUF_SIZE) == 0) {
-                        code_regions = ++exe_regions;
-                        load_addr = exe_load;
-                        is_exe = true;
-                        strncpy(binname, filename, MAX_LINKBUF_SIZE);
-                        binname[MAX_LINKBUF_SIZE - 1] = '\0';  /* just to be sure */
-                    }
-                    if (exe_regions < 2)
-                        load_addr = start;
-                }
-                prev_end = end;
-
-                /* must have permissions to read and write, and be non-zero size */
-                if ((write == 'w') && (read == 'r') && ((end - start) > 0)) {
-                    bool useful = false;
-
-                    /* determine region type */
+            #define IS_READ  (read  == 'r')
+            #define IS_WRITE (write == 'w')
+            #define IS_EXEC  (exec  == 'x')
+            /* detect further regions of the same ELF file and its end */
+            if (code_regions > 0) {
+                if (IS_EXEC || (strncmp(filename, binname,
+                  MAX_LINKBUF_SIZE) != 0 && (filename[0] != '\0' ||
+                  start != prev_end)) || code_regions >= 4) {
+                    code_regions = 0;
+                    is_exe = false;
+                    /* exe with .text and without .data is impossible */
+                    if (exe_regions > 1)
+                        exe_regions = 0;
+                } else {
+                    code_regions++;
                     if (is_exe)
-                        type = REGION_TYPE_EXE;
-                    else if (code_regions > 0)
-                        type = REGION_TYPE_CODE;
-                    else if (!strcmp(filename, "[heap]"))
-                        type = REGION_TYPE_HEAP;
-                    else if (!strcmp(filename, "[stack]"))
-                        type = REGION_TYPE_STACK;
+                        exe_regions++;
+                }
+            }
+            if (code_regions == 0) {
+                /* detect the first region belonging to an ELF file */
+                if (IS_EXEC && filename[0] != '\0') {
+                    code_regions++;
+                    if (strncmp(filename, exename, MAX_LINKBUF_SIZE) == 0) {
+                        exe_regions = 1;
+                        exe_load = start;
+                        is_exe = true;
+                    }
+                }
+                if (exe_regions < 2)
+                    load_addr = start;
+            }
+            prev_end = end;
 
-                    /* determine if this region is useful */
-                    switch (sm_globals.options.region_scan_level)
-                    {
-                        case REGION_ALL:
+            /* must have permissions to read and write, and be non-zero size */
+            if (IS_READ && IS_WRITE && ((end - start) > 0)) {
+                bool useful = false;
+
+                /*
+                 * determine region type
+                 * XXX: BSD map file doesn't specify heap/stack regions...
+                 */
+                if (is_exe)
+                    type = REGION_TYPE_EXE;
+                else if (code_regions > 0)
+                    type = REGION_TYPE_CODE;
+#ifndef OS_IS_BSD
+                else if (!strcmp(filename, "[heap]"))
+                    type = REGION_TYPE_HEAP;
+                else if (!strcmp(filename, "[stack]"))
+                    type = REGION_TYPE_STACK;
+#endif
+
+                /* determine if this region is useful */
+                switch (sm_globals.options.region_scan_level) {
+                    case REGION_ALL:
+                        useful = true;
+                        break;
+                    case REGION_HEAP_STACK_EXECUTABLE_BSS:
+                        if (filename[0] == '\0')
+                        {
                             useful = true;
                             break;
-                        case REGION_HEAP_STACK_EXECUTABLE_BSS:
-                            if (filename[0] == '\0')
-                            {
-                                useful = true;
-                                break;
-                            } 
-                            /* fall through */
-                        case REGION_HEAP_STACK_EXECUTABLE:
-                            if (type == REGION_TYPE_HEAP || type == REGION_TYPE_STACK)
-                            {
-                                useful = true;
-                                break;
-                            }
-                            /* test if the region is mapped to the executable */
-                            if (type == REGION_TYPE_EXE ||
-                              strncmp(filename, exename, MAX_LINKBUF_SIZE) == 0)
-                                useful = true;
-                        break;
+                        }
+                        /* FALLTHROUGH */
+                    case REGION_HEAP_STACK_EXECUTABLE:
+#ifndef OS_IS_BSD
+                        if (type == REGION_TYPE_HEAP || type == REGION_TYPE_STACK)
+                        {
+                            useful = true;
+                            break;
+                        }
+#endif
+                        /* test if the region is mapped to the executable */
+                        if (type == REGION_TYPE_EXE ||
+                          strncmp(filename, exename, MAX_LINKBUF_SIZE) == 0)
+                            useful = true;
+                    break;
                 }
                    
                 if (!useful)
@@ -233,18 +218,22 @@ bool sm_readmaps(pid_t target, list_t *regions)
                 }
 
                 /* initialize this region */
-                map->flags.read = true;
+                map->flags.read  = true;
                 map->flags.write = true;
-                map->start = (void *) start;
-                map->size = (unsigned long) (end - start);
-                map->type = type;
-                map->load_addr = load_addr;
+                map->start       = (void *)start;
+                map->size        = (unsigned long)(end - start);
+                map->type        = type;
+                map->load_addr   = load_addr;
 
                 /* setup other permissions */
-                map->flags.exec = (exec == 'x');
-                map->flags.shared = (cow == 's');
-                map->flags.private = (cow == 'p');
-
+                map->flags.exec = IS_EXEC;
+#ifdef OS_IS_BSD
+                /* NOTE: always defined as `p` on FreeBSD */
+                map->flags.shared  = 0;
+                map->flags.private = 1;
+#else
+                map->flags.private = !(map->flags.shared = (cow == 's'));
+#endif
                 /* save pathname */
                 if (strlen(filename) != 0) {
                     /* the pathname is concatenated with the structure */
