@@ -1,23 +1,23 @@
 /*
-    A simple linked list implementation.
-
-    Copyright (C) 2006,2007,2009 Tavis Ormandy <taviso@sdf.lonestar.org>
-
-    This file is part of libscanmem.
-
-    This library is free software: you can redistribute it and/or modify
-    it under the terms of the GNU Lesser General Public License as published
-    by the Free Software Foundation; either version 3 of the License, or
-    (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU Lesser General Public License for more details.
-
-    You should have received a copy of the GNU Lesser General Public License
-    along with this library.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ *  A simple linked list implementation.
+ *
+ *  Copyright (C) 2006,2007,2009 Tavis Ormandy <taviso@sdf.lonestar.org>
+ *
+ *  This file is part of libscanmem.
+ *
+ *  This library is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU Lesser General Public License as published
+ *  by the Free Software Foundation; either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU Lesser General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Lesser General Public License
+ *  along with this library.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "config.h"
 
@@ -25,13 +25,17 @@
 
 #include "list.h"
 
-/* create a new list */
+/*
+ * create a new list
+ */
 list_t *l_init(void)
 {
     return calloc(1, sizeof(list_t));
 }
 
-/* destroy the whole list */
+/*
+ * destroy the whole list
+ */
 void l_destroy(list_t * list)
 {
     void *data;
@@ -48,7 +52,9 @@ void l_destroy(list_t * list)
     free(list);
 }
 
-/* add a new element to the list */
+/*
+ * add a new element to the list
+ */
 int l_append(list_t * list, element_t * element, void *data)
 {
     element_t *n = calloc(1, sizeof(element_t));
@@ -82,7 +88,9 @@ int l_append(list_t * list, element_t * element, void *data)
     return 0;
 }
 
-/* concatenate list src with list dst */
+/*
+ * concatenate list src with list dst
+ */
 int l_concat(list_t *dst, list_t **src)
 {
     void *data;
@@ -105,7 +113,9 @@ int l_concat(list_t *dst, list_t **src)
     return 0;
 }
 
-/* remove the element at element->next */
+/* 
+ * remove the element at element->next
+ */
 void l_remove(list_t * list, element_t * element, void **data)
 {
     element_t *o;
@@ -146,7 +156,9 @@ void l_remove(list_t * list, element_t * element, void **data)
     return;
 }
 
-/* remove the nth element */
+/*
+ * remove the nth element
+ */
 void l_remove_nth(list_t * list, unsigned n, void **data)
 {
     element_t *np = list->head;

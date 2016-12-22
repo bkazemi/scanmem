@@ -1,26 +1,26 @@
 /*
-    Simple routines for working with the value_t data structure.
-
-    Copyright (C) 2006,2007,2009 Tavis Ormandy <taviso@sdf.lonestar.org>
-    Copyright (C) 2009           Eli Dupree <elidupree@charter.net>
-    Copyright (C) 2009,2010      WANG Lu <coolwanglu@gmail.com>
-    Copyright (C) 2015           Sebastian Parschauer <s.parschauer@gmx.de>
-
-    This file is part of libscanmem.
-
-    This library is free software: you can redistribute it and/or modify
-    it under the terms of the GNU Lesser General Public License as published
-    by the Free Software Foundation; either version 3 of the License, or
-    (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU Lesser General Public License for more details.
-
-    You should have received a copy of the GNU Lesser General Public License
-    along with this library.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ *  Simple routines for working with the value_t data structure.
+ *
+ *  Copyright (C) 2006,2007,2009 Tavis Ormandy <taviso@sdf.lonestar.org>
+ *  Copyright (C) 2009           Eli Dupree <elidupree@charter.net>
+ *  Copyright (C) 2009,2010      WANG Lu <coolwanglu@gmail.com>
+ *  Copyright (C) 2015           Sebastian Parschauer <s.parschauer@gmx.de>
+ *
+ *  This file is part of libscanmem.
+ *
+ *  This library is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU Lesser General Public License as published
+ *  by the Free Software Foundation; either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU Lesser General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Lesser General Public License
+ *  along with this library.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 
 #ifndef VALUE_H
@@ -31,29 +31,49 @@
 #include <stddef.h>
 #include <assert.h>
 
-/* some routines for working with value_t structures */
-
-/* this is memory-efficient but DANGEROUS */
-/* always keep in mind that don't mess up with bytearray_length or string_length when scanning for BYTEARRAY of STRING */
+/*
+ * some routines for working with value_t structures
+ *
+ * this is memory-efficient but DANGEROUS
+ * always keep in mind - don't mess with bytearray_length or string_length
+ * when scanning for BYTEARRAY of STRING
+ */
 typedef union {
     struct __attribute__ ((packed)) {
-        unsigned  u8b:1;        /* could be an unsigned  8-bit variable (e.g. unsigned char)      */
-        unsigned u16b:1;        /* could be an unsigned 16-bit variable (e.g. unsigned short)     */
-        unsigned u32b:1;        /* could be an unsigned 32-bit variable (e.g. unsigned int)       */
-        unsigned u64b:1;        /* could be an unsigned 64-bit variable (e.g. unsigned long long) */
-        unsigned  s8b:1;        /* could be a    signed  8-bit variable (e.g. signed char)        */
-        unsigned s16b:1;        /* could be a    signed 16-bit variable (e.g. short)              */
-        unsigned s32b:1;        /* could be a    signed 32-bit variable (e.g. int)                */
-        unsigned s64b:1;        /* could be a    signed 64-bit variable (e.g. long long)          */
-        unsigned f32b:1;        /* could be a 32-bit floating point variable (i.e. float)         */
-        unsigned f64b:1;        /* could be a 64-bit floating point variable (i.e. double)        */
+        /* could be an unsigned 8-bit variable (e.g. unsigned char) */
+        unsigned  u8b:1;
+        /* could be an unsigned 16-bit variable (e.g. unsigned short) */
+        unsigned u16b:1;
+        /* could be an unsigned 32-bit variable (e.g. unsigned int) */
+        unsigned u32b:1;
+         /* could be an unsigned 64-bit variable (e.g. unsigned long long) */
+        unsigned u64b:1;
+        /* could be a signed 8-bit variable (e.g. signed char) */
+        unsigned  s8b:1;
+         /* could be a signed 16-bit variable (e.g. short) */
+        unsigned s16b:1;
+        /* could be a signed 32-bit variable (e.g. int) */
+        unsigned s32b:1;
+         /* could be a signed 64-bit variable (e.g. long long) */
+        unsigned s64b:1;
+        /* could be a 32-bit floating point variable (i.e. float) */
+        unsigned f32b:1;
+        /* could be a 64-bit floating point variable (i.e. double) */
+        unsigned f64b:1;
 
-        unsigned ineq_forwards:1; /* Whether this value has matched inequalities used the normal way */
-        unsigned ineq_reverse:1; /* Whether this value has matched inequalities in reverse */
+         /* Whether this value has matched inequalities used the normal way */
+        unsigned ineq_forwards:1;
+         /* Whether this value has matched inequalities in reverse */
+        unsigned ineq_reverse:1;
     };
 
-    uint16_t bytearray_length;       /* used when search for an array of bytes or text, I guess uint16_t is enough */
-    uint16_t string_length;          /* used when search for a string */
+    /*
+     * used when search for an array of bytes or text.
+     * I guess uint16_t is enough
+     */
+    uint16_t bytearray_length;
+    /* used when search for a string */
+    uint16_t string_length;
 } match_flags;
 
 /* this struct describing values retrieved from target memory */
@@ -99,20 +119,27 @@ typedef struct {
     match_flags flags;
 } uservalue_t;
 
-/* used when output values to user */
-/* only work for numbers */
-void valtostr(const value_t *val, char *str, size_t n);
-bool parse_uservalue_bytearray(char **argv, unsigned argc, bytearray_element_t *array, uservalue_t * val); /* parse bytearray, the parameter array should be allocated beforehand */
-bool parse_uservalue_number(const char *nptr, uservalue_t * val); /* parse int or float */
-bool parse_uservalue_int(const char *nptr, uservalue_t * val);
-bool parse_uservalue_float(const char *nptr, uservalue_t * val);
-void valcpy(value_t * dst, const value_t * src);
-void uservalue2value(value_t * dst, const uservalue_t * src); /* dst.flags must be set beforehand */
-int flags_to_max_width_in_bytes(match_flags flags);
-int val_max_width_in_bytes(value_t *val);
+/*
+ * used when output values to user
+ *
+ * NOTE: only work for numbers
+ */
+void valtostr(const value_t *, char *, size_t);
+/* parse bytearray, the parameter array should be allocated beforehand */
+bool parse_uservalue_bytearray(char **, unsigned, bytearray_element_t *,
+                               uservalue_t *);
+/* parse int or float */
+bool parse_uservalue_number(const char *, uservalue_t *);
+bool parse_uservalue_int(const char *, uservalue_t *);
+bool parse_uservalue_float(const char *, uservalue_t *);
+void valcpy(value_t *, const value_t *);
+ /* dst.flags must be set beforehand */
+void uservalue2value(value_t *, const uservalue_t *);
+int flags_to_max_width_in_bytes(match_flags);
+int val_max_width_in_bytes(value_t *);
 
-#define get_s8b(val) ((val)->int8_value)
-#define get_u8b(val) ((val)->uint8_value)
+#define get_s8b( val) ((val)->int8_value)
+#define get_u8b( val) ((val)->uint8_value)
 #define get_s16b(val) ((val)->int16_value)
 #define get_u16b(val) ((val)->uint16_value)
 #define get_s32b(val) ((val)->int32_value)
@@ -122,14 +149,14 @@ int val_max_width_in_bytes(value_t *val);
 #define get_f32b(val) ((val)->float32_value)
 #define get_f64b(val) ((val)->float64_value)
 
-#define set_s8b(val, v) (((val)->int8_value) = v)
-#define set_u8b(val, v) (((val)->uint8_value) = v)
-#define set_s16b(val, v) (((val)->int16_value) = v)
-#define set_u16b(val, v) (((val)->uint16_value) = v)
-#define set_s32b(val, v) (((val)->int32_value) = v)
-#define set_u32b(val, v) (((val)->uint32_value) = v)
-#define set_s64b(val, v) (((val)->int64_value) = v)
-#define set_u64b(val, v) (((val)->uint64_value) = v)
+#define set_s8b( val, v) (((val)->int8_value)    = v)
+#define set_u8b( val, v) (((val)->uint8_value)   = v)
+#define set_s16b(val, v) (((val)->int16_value)   = v)
+#define set_u16b(val, v) (((val)->uint16_value)  = v)
+#define set_s32b(val, v) (((val)->int32_value)   = v)
+#define set_u32b(val, v) (((val)->uint32_value)  = v)
+#define set_s64b(val, v) (((val)->int64_value)   = v)
+#define set_u64b(val, v) (((val)->uint64_value)  = v)
 #define set_f32b(val, v) (((val)->float32_value) = v)
 #define set_f64b(val, v) (((val)->float64_value) = v)
 
@@ -137,10 +164,10 @@ int val_max_width_in_bytes(value_t *val);
     unsigned type get_u##typename (const value_t const *val); \
     signed type get_s##typename (const value_t const *val); 
 
-DECLARE_GET_BY_SYSTEM_DEPENDENT_TYPE_FUNCTIONS(char, char);
-DECLARE_GET_BY_SYSTEM_DEPENDENT_TYPE_FUNCTIONS(short, short);
-DECLARE_GET_BY_SYSTEM_DEPENDENT_TYPE_FUNCTIONS(int, int);
-DECLARE_GET_BY_SYSTEM_DEPENDENT_TYPE_FUNCTIONS(long, long);
+DECLARE_GET_BY_SYSTEM_DEPENDENT_TYPE_FUNCTIONS(char, char         );
+DECLARE_GET_BY_SYSTEM_DEPENDENT_TYPE_FUNCTIONS(short, short       );
+DECLARE_GET_BY_SYSTEM_DEPENDENT_TYPE_FUNCTIONS(int, int           );
+DECLARE_GET_BY_SYSTEM_DEPENDENT_TYPE_FUNCTIONS(long, long         );
 DECLARE_GET_BY_SYSTEM_DEPENDENT_TYPE_FUNCTIONS(long long, longlong);
 
 static inline void zero_match_flags(match_flags *flags)
@@ -150,9 +177,11 @@ static inline void zero_match_flags(match_flags *flags)
 
 static inline void zero_value(value_t *val)
 {
-    /* zero components separately -
-       10 bytes memset() is too slow */
-    val->int64_value = 0;               /* zero the whole union */
+    /*
+     * zero components separately.
+     * 10 bytes memset() is too slow.
+     */
+    val->int64_value = 0; /* zero the whole union */
     zero_match_flags(&val->flags);
 }
 
@@ -176,8 +205,10 @@ static inline void truncval_to_flags(value_t *dst, match_flags flags)
     dst->flags.u8b  &= flags.u8b;
     dst->flags.s8b  &= flags.s8b;
 
-    /* Hack - simply overwrite the inequality flags (this should
-       have no effect except to make them display properly) */
+    /*
+     * Hack - simply overwrite the inequality flags
+     * (this should have no effect except to make them display properly)
+     */
     dst->flags.ineq_forwards = flags.ineq_forwards;
     dst->flags.ineq_reverse  = flags.ineq_reverse;
 }

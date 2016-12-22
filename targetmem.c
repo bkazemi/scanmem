@@ -1,24 +1,24 @@
 /*
-    The target memory information array (storage of matches).
-
-    Copyright (C) 2009 Eli Dupree  <elidupree(a)charter.net>
-    Copyright (C) 2010 WANG Lu  <coolwanglu(a)gmail.com>
-
-    This file is part of libscanmem.
-
-    This library is free software: you can redistribute it and/or modify
-    it under the terms of the GNU Lesser General Public License as published
-    by the Free Software Foundation; either version 3 of the License, or
-    (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU Lesser General Public License for more details.
-
-    You should have received a copy of the GNU Lesser General Public License
-    along with this library.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ *  The target memory information array (storage of matches).
+ *
+ *  Copyright (C) 2009 Eli Dupree  <elidupree(a)charter.net>
+ *  Copyright (C) 2010 WANG Lu  <coolwanglu(a)gmail.com>
+ *
+ *  This file is part of libscanmem.
+ *
+ *  This library is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU Lesser General Public License as published
+ *  by the Free Software Foundation; either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU Lesser General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Lesser General Public License
+ *  along with this library.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "config.h"
 
@@ -34,7 +34,7 @@
 
 
 matches_and_old_values_array *
-allocate_array (matches_and_old_values_array *array, unsigned long max_bytes)
+allocate_array(matches_and_old_values_array *array, unsigned long max_bytes)
 {
     /* Make enough space for the array header and a null first swath. */
     unsigned long bytes_to_allocate =
@@ -58,7 +58,6 @@ null_terminate (matches_and_old_values_array *array,
 
     if (swath->number_of_bytes == 0) {
         assert(swath->first_byte_in_child == NULL);
-
     } else {
         swath = local_address_beyond_last_element(swath );
         array = allocate_enough_to_reach(array, ((void *)swath) +
@@ -88,15 +87,18 @@ void data_to_printable_string (char *buf, int buf_length,
 {
     long swath_length = swath->number_of_bytes - index;
     /* TODO: what if length is too large ? */
-    long max_length = (swath_length >= string_length) ? string_length : swath_length;
+    long max_length = (swath_length >= string_length) ? string_length
+                                                      : swath_length;
     int i;
 
     for (i = 0; i < max_length; ++i) {
         uint8_t byte;
 
-        byte  = ((matches_and_old_values_swath *)swath)->data[index+i].old_value;
+        byte  = ((matches_and_old_values_swath *)swath)->data[index + i]
+                                                          .old_value;
         buf[i] = isprint(byte) ? byte : '.';
     }
+
     buf[i] = 0; /* null-terminate */
 }
 
@@ -109,16 +111,17 @@ void data_to_bytearray_text (char *buf, int buf_length,
     long swath_length = swath->number_of_bytes - index;
 
     /* TODO: what if length is too large ? */
-    long max_length = (swath_length >= bytearray_length) ?
-                       bytearray_length : swath_length;
+    long max_length = (swath_length >= bytearray_length) ? bytearray_length
+                                                         : swath_length;
 
     for (i = 0; i < max_length; ++i) {
         uint8_t byte;
 
         byte = ((matches_and_old_values_swath *)swath)->data[index+i].old_value;
         /* TODO: check error here */
-        snprintf(buf+bytes_used, buf_length-bytes_used,
-                 (i<max_length-1) ? "%02x " : "%02x", byte);
+        snprintf(buf + bytes_used, buf_length - bytes_used,
+                 (i < max_length-1) ? "%02x " : "%02x", byte);
+
         bytes_used += 3;
     }
 }
@@ -140,7 +143,6 @@ nth_match (matches_and_old_values_array *matches, unsigned n)
         /* Only actual matches are considered */
         if (flags_to_max_width_in_bytes(
                 reading_swath_index->data[reading_iterator].match_info) > 0) {
-
             if (i == n)
                 return (match_location){reading_swath_index, reading_iterator};
 
@@ -183,24 +185,28 @@ delete_by_region (matches_and_old_values_array *matches,
     while (reading_swath.first_byte_in_child) {
         void *address = reading_swath.first_byte_in_child + reading_iterator;
         bool in_region = (address >= which->start &&
-                          address < which->start + which->size);
+                          address <  which->start + which->size);
 
         if ((in_region && invert) || (!in_region && !invert)) {
             match_flags flags;
 
             flags = reading_swath_index->data[reading_iterator].match_info;
 
-            /* Still a candidate. Write data.
-                (We can get away with overwriting in the same array because
-                 it is guaranteed to take up the same number of bytes or fewer,
-                 and because we copied out the reading swath metadata already.)
-                (We can get away with assuming that the pointers will stay
-                 valid, because as we never add more data to the array than
-                 there was before, it will not reallocate.) */
+            /*
+             * Still a candidate. Write data.
+             * (We can get away with overwriting in the same array because
+             *  it is guaranteed to take up the same number of bytes or fewer,
+             *  and because we copied out the reading swath metadata already.)
+             * (We can get away with assuming that the pointers will stay
+             *  valid, because as we never add more data to the array than
+             *  there was before, it will not reallocate.)
+             */
             writing_swath_index = add_element((matches_and_old_values_array **)
-                                      (&matches), (matches_and_old_values_swath *)
-                                      writing_swath_index, address,
-                                      &reading_swath_index->data[reading_iterator]);
+                                      (&matches),
+                                      (matches_and_old_values_swath *)
+                                        writing_swath_index, address,
+                                      &reading_swath_index->data
+                                                            [reading_iterator]);
 
             /* Actual matches are recorded */
             if (flags_to_max_width_in_bytes(flags) > 0)
@@ -210,7 +216,6 @@ delete_by_region (matches_and_old_values_array *matches,
         /* Go on to the next one... */
         ++reading_iterator;
         if (reading_iterator >= reading_swath.number_of_bytes) {
-
             reading_swath_index = (matches_and_old_values_swath *)
                 (&reading_swath_index->data[reading_swath.number_of_bytes]);
 
@@ -221,7 +226,7 @@ delete_by_region (matches_and_old_values_array *matches,
     }
 
     matches = null_terminate((matches_and_old_values_array *)matches,
-                             (matches_and_old_values_swath *)writing_swath_index);
+                           (matches_and_old_values_swath *)writing_swath_index);
 
     if (!matches)
         return NULL;

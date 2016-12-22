@@ -1,28 +1,28 @@
 /*
-    Registration and general execution of commands.
-
-    Copyright (C) 2006,2007,2009 Tavis Ormandy <taviso@sdf.lonestar.org>
-    Copyright (C) 2009           Eli Dupree <elidupree@charter.net>
-    Copyright (C) 2009,2010      WANG Lu <coolwanglu@gmail.com>
-
-    This file is part of libscanmem.
-
-    This library is free software: you can redistribute it and/or modify
-    it under the terms of the GNU Lesser General Public License as published
-    by the Free Software Foundation; either version 3 of the License, or
-    (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU Lesser General Public License for more details.
-
-    You should have received a copy of the GNU Lesser General Public License
-    along with this library.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ *  Registration and general execution of commands.
+ *
+ *  Copyright (C) 2006,2007,2009 Tavis Ormandy <taviso@sdf.lonestar.org>
+ *  Copyright (C) 2009           Eli Dupree <elidupree@charter.net>
+ *  Copyright (C) 2009,2010      WANG Lu <coolwanglu@gmail.com>
+ *
+ *  This file is part of libscanmem.
+ *
+ *  This library is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU Lesser General Public License as published
+ *  by the Free Software Foundation; either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU Lesser General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Lesser General Public License
+ *  along with this library.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef _GNU_SOURCE
-# define _GNU_SOURCE
+#define _GNU_SOURCE
 #endif
 
 #include "config.h"
@@ -40,14 +40,14 @@
 #include "show_message.h"
 
 /*
- * sm_registercommand - add the command and a pointer to its handler to the commands list.
+ * sm_registercommand - add the command and a pointer to its handler to
+ *                      the commands list.
  *
- * so that free(data) works when destroying the list, I just concatenate the string
- * with the command structure. I could have used a static vector of commands, but this
- * way I can add aliases and macros at runtime (planned in future).
- *
+ * so that free(data) works when destroying the list, I just concatenate
+ * the string with the command structure. I could have used a static vector
+ * of commands, but this way I can add aliases and macros at runtime
+ * (planned in future).
  */
-
 bool sm_registercommand(const char *command, void *handler, list_t *commands,
                         char *shortdoc, char *longdoc)
 {
@@ -60,6 +60,7 @@ bool sm_registercommand(const char *command, void *handler, list_t *commands,
             show_error("sorry, there was a memory allocation problem.\n");
             return false;
         }
+
         data->command = (char *) data + sizeof(*data);
 
         /* command points to the extra space allocated after data */
@@ -69,12 +70,13 @@ bool sm_registercommand(const char *command, void *handler, list_t *commands,
             show_error("sorry, there was a memory allocation problem.\n");
             return false;
         }
+
         data->command = NULL;
     }
 
-    data->handler = handler;
+    data->handler  = handler;
     data->shortdoc = shortdoc;
-    data->longdoc = longdoc;
+    data->longdoc  = longdoc;
 
     /* add new command to list */
     if (l_append(commands, NULL, data) == -1) {
@@ -106,7 +108,6 @@ bool sm_execcommand(globals_t *vars, const char *commandline)
 
     /* tokenize command line into an argument vector */
     for (argc = 0; tok; argc++, str = NULL) {
-
         /* make enough size for another pointer (+1 for NULL at end) */
         if ((argv = realloc(argv, (argc + 1) * sizeof(char *))) == NULL) {
             show_error("sorry there was a memory allocation error.\n");
@@ -138,7 +139,6 @@ bool sm_execcommand(globals_t *vars, const char *commandline)
             /* the default handler has a NULL command */
             err = command;
         } else if (strcasecmp(argv[0], command->command) == 0) {
-
             /* match found, execute handler */
             ret = command->handler(vars, argv, argc - 1);
 
@@ -150,9 +150,8 @@ bool sm_execcommand(globals_t *vars, const char *commandline)
     }
 
     /* no match, if there was a default handler found, run it now */
-    if (err != NULL) {
+    if (err != NULL)
         ret = err->handler(vars, argv, argc - 1);
-    }
 
     free(argv);
 

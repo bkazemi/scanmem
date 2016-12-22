@@ -1,34 +1,34 @@
 /*
-    Functions to access the memory of the target process.
- 
-    Copyright (C) 2006,2007,2009 Tavis Ormandy <taviso@sdf.lonestar.org>
-    Copyright (C) 2009           Eli Dupree <elidupree@charter.net>
-    Copyright (C) 2009,2010      WANG Lu <coolwanglu@gmail.com>
-    Copyright (C) 2015           Sebastian Parschauer <s.parschauer@gmx.de>
- 
-    This file is part of libscanmem.
-
-    This library is free software: you can redistribute it and/or modify
-    it under the terms of the GNU Lesser General Public License as published
-    by the Free Software Foundation; either version 3 of the License, or
-    (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU Lesser General Public License for more details.
-
-    You should have received a copy of the GNU Lesser General Public License
-    along with this library.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ *  Functions to access the memory of the target process.
+ *
+ *  Copyright (C) 2006,2007,2009 Tavis Ormandy <taviso@sdf.lonestar.org>
+ *  Copyright (C) 2009           Eli Dupree <elidupree@charter.net>
+ *  Copyright (C) 2009,2010      WANG Lu <coolwanglu@gmail.com>
+ *  Copyright (C) 2015           Sebastian Parschauer <s.parschauer@gmx.de>
+ *
+ *  This file is part of libscanmem.
+ *
+ *  This library is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU Lesser General Public License as published
+ *  by the Free Software Foundation; either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU Lesser General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Lesser General Public License
+ *  along with this library.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #include "config.h"
 
 /* for pread */
-# ifdef _XOPEN_SOURCE
-#  undef _XOPEN_SOURCE
-# endif
-# define _XOPEN_SOURCE 500
+#ifdef _XOPEN_SOURCE
+#undef _XOPEN_SOURCE
+#endif
+#define _XOPEN_SOURCE 500
 
 #include <time.h>
 #include <sys/types.h>
@@ -47,9 +47,9 @@
 #include <fcntl.h>
 
 #ifdef __GNUC__
-# define EXPECT(x,y) __builtin_expect(x, y)
+#define EXPECT(x,y) __builtin_expect(x, y)
 #else
-# define EXPECT(x,y) x
+#define EXPECT(x,y) x
 #endif
 
 // Dirty hack for FreeBSD
@@ -115,8 +115,11 @@ bool sm_attach(pid_t target)
 
 bool sm_detach(pid_t target)
 {
-    // addr is ignore under Linux, but should be 1 under FreeBSD in order to let the child process continue at what it had been interrupted
-    return ptrace(PTRACE_DETACH, target, 1, 0) == 0;
+    /*
+     * addr is ignore under Linux, but should be 1 under FreeBSD in order
+     * to let the child process continue at what it had been interrupted
+     */
+     return ptrace(PTRACE_DETACH, target, 1, 0) == 0;
 }
 
 
@@ -127,7 +130,6 @@ bool sm_detach(pid_t target)
  * the number of peeks required by 70% when reading large chunks of
  * consecutive addresses.
  */
-
 bool sm_peekdata(pid_t pid, void *addr, value_t * result)
 {
     char *reqaddr = addr;
@@ -138,45 +140,48 @@ bool sm_peekdata(pid_t pid, void *addr, value_t * result)
     assert(peekbuf.size <= MAX_PEEKBUF_SIZE);
     assert(result != NULL);
 
-    /* initialise result */
+    /* initialize result */
     zero_value(result);
     valnowidth(result);
 
     /* check if we have a cache hit */
     if (pid == peekbuf.pid &&
             reqaddr >= peekbuf.base &&
-            (unsigned long) (reqaddr + sizeof(int64_t) - peekbuf.base) <= peekbuf.size) {
-        memcpy(&result->int64_value, &peekbuf.cache[reqaddr - peekbuf.base], sizeof(result->int64_value));
+            (unsigned long) (reqaddr + sizeof(int64_t) - peekbuf.base)
+                <= peekbuf.size) {
+        memcpy(&result->int64_value, &peekbuf.cache[reqaddr - peekbuf.base],
+               sizeof(result->int64_value));
         return true;
     } else if (pid == peekbuf.pid &&
             reqaddr >= peekbuf.base &&
             (unsigned long) (reqaddr - peekbuf.base) < peekbuf.size) {
-
         assert(peekbuf.size != 0);
 
-        /* partial hit, we have some of the data but not all, so remove old entries - shift the frame by as far as is necessary */
-        /* tail shift, round up to nearest long size, for ptrace efficiency */
-        shift_size1 = (reqaddr + sizeof(int64_t)) - (peekbuf.base + peekbuf.size);
+        /* 
+         * partial hit, we have some of the data but not all, so remove
+         * old entries - shift the frame by as far as is necessary
+         *
+         * tail shift, round up to nearest long size, for ptrace efficiency
+         */
+        shift_size1 = (reqaddr + sizeof(int64_t)) - (peekbuf.base +
+                                                     peekbuf.size);
         shift_size1 = sizeof(long) * (1 + (shift_size1-1) / sizeof(long));
 
         /* head shift if necessary*/
-        if (peekbuf.size + shift_size1 > MAX_PEEKBUF_SIZE) 
-        {
+        if (peekbuf.size + shift_size1 > MAX_PEEKBUF_SIZE) {
             shift_size2 = reqaddr-peekbuf.base;
             shift_size2 = sizeof(long) * (shift_size2 / sizeof(long));
 
             for (i = shift_size2; i < peekbuf.size; ++i)
-            {
                 peekbuf.cache[i - shift_size2] = peekbuf.cache[i];
-            }
+
             peekbuf.size -= shift_size2;
             peekbuf.base += shift_size2;
         }
     } else {
-
         /* cache miss, invalidate cache */
         shift_size1 = shift_size2 = sizeof(int64_t);
-        peekbuf.pid = pid;
+        peekbuf.pid  = pid;
         peekbuf.size = 0;
         peekbuf.base = addr;
     }
@@ -184,8 +189,7 @@ bool sm_peekdata(pid_t pid, void *addr, value_t * result)
     /* we need a ptrace() to complete request */
     errno = 0;
     
-    for (i = 0; i < shift_size1; i += sizeof(long))
-    {
+    for (i = 0; i < shift_size1; i += sizeof(long)) {
         char *ptrace_address = peekbuf.base + peekbuf.size;
         long ptraced_long = ptrace(PTRACE_PEEKDATA, pid, ptrace_address, NULL);
 
@@ -193,22 +197,25 @@ bool sm_peekdata(pid_t pid, void *addr, value_t * result)
         if (EXPECT(ptraced_long == -1L && errno != 0, false)) {
             /* its possible i'm trying to read partially oob */
             if (errno == EIO || errno == EFAULT) {
-                
-                /* read backwards until we get a good read, then shift out the right value */
+                /*
+                 * read backwards until we get a good read, then shift 
+                 * out the right value
+                 */
                 for (j = 1, errno = 0; j < sizeof(long); j++, errno = 0) {
-                
-                    /* Try for a shifted ptrace - 'continue' (i.e. try an increased shift) if it fails */
-                    if ((ptraced_long = ptrace(PTRACE_PEEKDATA, pid, ptrace_address - j, NULL)) == -1L && 
-                        (errno == EIO || errno == EFAULT))
+                    /*
+                     * Try for a shifted ptrace - 'continue'
+                     * (i.e. try an increased shift) if it fails
+                     */
+                    if ((ptraced_long = ptrace(PTRACE_PEEKDATA, pid,
+                                               ptrace_address - j, NULL))
+                            == -1L && (errno == EIO || errno == EFAULT))
                             continue;
                     
                     /* Cache it with the appropriate offset */
-                    if(peekbuf.size >= j)
-                    {
-                        memcpy(&peekbuf.cache[peekbuf.size - j], &ptraced_long, sizeof(long));
-                    }
-                    else
-                    {
+                    if (peekbuf.size >= j)
+                        memcpy(&peekbuf.cache[peekbuf.size - j], &ptraced_long,
+                               sizeof(long));
+                    else {
                         memcpy(&peekbuf.cache[0], &ptraced_long, sizeof(long));
                         peekbuf.base -= j;
                     }
@@ -220,7 +227,10 @@ bool sm_peekdata(pid_t pid, void *addr, value_t * result)
                 }
             }
             
-            /* i wont print a message here, would be very noisy if a region is unmapped */
+            /*
+             * I wont print a message here, would be very noisy
+             * if a region is unmapped
+             */
             return false;
         }
         
@@ -233,20 +243,18 @@ bool sm_peekdata(pid_t pid, void *addr, value_t * result)
     doublebreak:
     
     /* Return result to caller */
-    if (reqaddr + sizeof(int64_t) <= last_address_gathered)
-    {
+    if (reqaddr + sizeof(int64_t) <= last_address_gathered) {
         /* The values are fine - read away */
-        memcpy(&result->int64_value, &peekbuf.cache[reqaddr - peekbuf.base], sizeof(result->int64_value));
-    }
-    else
-    {
+        memcpy(&result->int64_value, &peekbuf.cache[reqaddr - peekbuf.base],
+               sizeof(result->int64_value));
+    } else {
         int successful_gathering = last_address_gathered - reqaddr;
         
         /* We didn't get enough - add zeroes at the end */
-        for (i = 0; i < sizeof(int64_t); ++i)
-        {
-            uint8_t val = (i < successful_gathering) ? peekbuf.cache[reqaddr - peekbuf.base + i] : 0;
-            *(((uint8_t *)&result->int64_value)    + i) = val;
+        for (i = 0; i < sizeof(int64_t); ++i) {
+            uint8_t val = (i < successful_gathering) ? 
+                            peekbuf.cache[reqaddr - peekbuf.base + i] : 0;
+            *(((uint8_t *)&result->int64_value) + i) = val;
         }
         
         /* Mark which values this can't be */
@@ -270,13 +278,21 @@ static inline void print_a_dot(void)
     fflush(stderr);
 }
 
-/* This is the function that handles when you enter a value (or >, <, =) for the second or later time (i.e. when there's already a list of matches); it reduces the list to those that still match. It returns false on failure to attach, detach, or reallocate memory, otherwise true.
-"value" is what to compare to. It is meaningless when the match type is not MATCHEXACT. */
+/* 
+ * This is the function that handles when you enter a value (or >, <, =)
+ * for the second or later time (i.e. when there's already a list of matches);
+ * it reduces the list to those that still match. It returns false on failure
+ * to attach, detach, or reallocate memory, otherwise true.
+ *
+ * "value" is what to compare to. It is meaningless when the match type is 
+ * not MATCHEXACT.
+ */
 bool sm_checkmatches(globals_t *vars,
                      scan_match_type_t match_type,
                      const uservalue_t *uservalue)
 {
-    matches_and_old_values_swath *reading_swath_index = (matches_and_old_values_swath *)vars->matches->swaths;
+    matches_and_old_values_swath *reading_swath_index =
+        (matches_and_old_values_swath *)vars->matches->swaths;
     matches_and_old_values_swath reading_swath = *reading_swath_index;
 
     long bytes_scanned = 0;
@@ -287,10 +303,10 @@ bool sm_checkmatches(globals_t *vars,
     size_t bytes_at_next_sample;
     size_t bytes_per_sample;
 
-    while(tmp_swath_index->number_of_bytes)
-    {
+    while (tmp_swath_index->number_of_bytes) {
         total_scan_bytes += tmp_swath_index->number_of_bytes;
-        tmp_swath_index = (matches_and_old_values_swath *)(&tmp_swath_index->data[tmp_swath_index->number_of_bytes]);
+        tmp_swath_index = (matches_and_old_values_swath *)
+            (&tmp_swath_index->data[tmp_swath_index->number_of_bytes]);
     }
     bytes_per_sample = total_scan_bytes / NUM_SAMPLES;
     bytes_at_next_sample = bytes_per_sample;
@@ -298,7 +314,8 @@ bool sm_checkmatches(globals_t *vars,
     print_a_dot();
 
     int reading_iterator = 0;
-    matches_and_old_values_swath *writing_swath_index = (matches_and_old_values_swath *)vars->matches->swaths;
+    matches_and_old_values_swath *writing_swath_index = 
+        (matches_and_old_values_swath *)vars->matches->swaths;
     writing_swath_index->first_byte_in_child = NULL;
     writing_swath_index->number_of_bytes = 0;
     
@@ -310,8 +327,8 @@ bool sm_checkmatches(globals_t *vars,
     vars->num_matches = 0;
     vars->scan_progress = 0.0;
     
-    if (sm_choose_scanroutine(vars->options.scan_data_type, match_type) == false)
-    {
+    if (sm_choose_scanroutine(vars->options.scan_data_type, match_type)
+            == false) {
         show_error("unsupported scan for current data type.\n"); 
         return false;
     }
@@ -321,6 +338,7 @@ bool sm_checkmatches(globals_t *vars,
     /* stop and attach to the target */
     if (sm_attach(vars->target) == false)
         return false;
+
     while (reading_swath.first_byte_in_child) {
         int match_length = 0;
         value_t data_value;
@@ -329,15 +347,24 @@ bool sm_checkmatches(globals_t *vars,
         void *address = reading_swath.first_byte_in_child + reading_iterator;
         
         /* Read value from this address */
-        if (EXPECT(sm_peekdata(vars->target, address, &data_value) == false, false)) {
-            /* Uhh, what? We couldn't look at the data there? I guess this doesn't count as a match then */
-        }
-        else
-        {
-            value_t old_val = data_to_val_aux(reading_swath_index, reading_iterator, reading_swath.number_of_bytes /* ,MATCHES_AND_VALUES */);
+        if (EXPECT(sm_peekdata(vars->target, address, &data_value) == 
+                false, false)) {
+            /* 
+             * Uhh, what? We couldn't look at the data there? I guess this
+             * doesn't count as a match then
+             */
+        } else {
+            value_t old_val = data_to_val_aux(reading_swath_index ,
+                                              reading_iterator    ,
+                                              reading_swath.number_of_bytes
+                                              /* ,MATCHES_AND_VALUES */);
 
-            match_flags flags = reading_swath_index->data[reading_iterator].match_info;
-            /* these are not harmful for bytearray routine, since it will ignore flags of new_value & old_value */
+            match_flags flags = reading_swath_index->data[reading_iterator]
+                                    .match_info;
+            /*
+             * these are not harmful for bytearray routine,
+             * since it will ignore flags of new_value & old_value
+             */
             truncval_to_flags(&old_val, flags);
             truncval_to_flags(&data_value, flags);
 
@@ -345,26 +372,39 @@ bool sm_checkmatches(globals_t *vars,
 
             zero_match_flags(&checkflags);
 
-            match_length = (*sm_scan_routine)(&data_value, &old_val, uservalue, &checkflags, address);
+            match_length = (*sm_scan_routine)(&data_value, &old_val, uservalue,
+                                              &checkflags, address);
         }
         
         if (match_length > 0)
         {
-            /* Still a candidate. Write data. 
-                (We can get away with overwriting in the same array because it is guaranteed to take up the same number of bytes or fewer, and because we copied out the reading swath metadata already.)
-                (We can get away with assuming that the pointers will stay valid, because as we never add more data to the array than there was before, it will not reallocate.) */
+            /*
+             * Still a candidate. Write data. 
+             * (We can get away with overwriting in the same array because
+             *  it is guaranteed to take up the same number of bytes or fewer,
+             *  and because we copied out the reading swath metadata already.)
+             *  (We can get away with assuming that the pointers will stay
+             *   valid, because as we never add more data to the array than
+             *   there was before, it will not reallocate.)
+             */
           
-            old_value_and_match_info new_value = { get_u8b(&data_value), checkflags };
-            writing_swath_index = add_element((&vars->matches), writing_swath_index, address, &new_value /* ,MATCHES_AND_VALUES */);
-            
+            old_value_and_match_info new_value = { get_u8b(&data_value),
+                                                   checkflags };
+            writing_swath_index = add_element((&vars->matches),
+                                              writing_swath_index, address,
+                                              &new_value
+                                              /* ,MATCHES_AND_VALUES */);
             ++vars->num_matches;
             
             required_extra_bytes_to_record = match_length - 1;
         }
-        else if (required_extra_bytes_to_record)
-        {
-            old_value_and_match_info new_value = { get_u8b(&data_value), zero_flag };
-            writing_swath_index = add_element(&vars->matches, writing_swath_index, address, &new_value /* ,MATCHES_AND_VALUES */);
+        else if (required_extra_bytes_to_record) {
+            old_value_and_match_info new_value = { get_u8b(&data_value),
+                                                   zero_flag };
+            writing_swath_index = add_element(&vars->matches,
+                                              writing_swath_index, address,
+                                              &new_value
+                                              /* ,MATCHES_AND_VALUES */);
             --required_extra_bytes_to_record;
         }
 
@@ -395,9 +435,10 @@ bool sm_checkmatches(globals_t *vars,
         }
     }
     
-    if (!(vars->matches = null_terminate(vars->matches, writing_swath_index /* ,MATCHES_AND_VALUES */)))
-    {
-        show_error("memory allocation error while reducing matches-array size\n");
+    if (!(vars->matches = null_terminate(vars->matches, writing_swath_index
+         /* ,MATCHES_AND_VALUES */))) {
+        show_error("memory allocation error while reducing matches-array "
+                   "size\n");
         return false;
     }
 
@@ -436,8 +477,12 @@ ssize_t readregion(pid_t target, void *buf, size_t count, unsigned long offset)
 }
     
 
-/* sm_searchregions() performs an initial search of the process for values matching value */
-bool sm_searchregions(globals_t *vars, scan_match_type_t match_type, const uservalue_t *uservalue)
+/*
+ * sm_searchregions() performs an initial search of the process
+ * for values matching value
+ */
+bool sm_searchregions(globals_t *vars, scan_match_type_t match_type,
+                      const uservalue_t *uservalue)
 {
     matches_and_old_values_swath *writing_swath_index;
     int required_extra_bytes_to_record = 0;
@@ -457,8 +502,8 @@ bool sm_searchregions(globals_t *vars, scan_match_type_t match_type, const userv
     match_flags zero_flag;
     zero_match_flags(&zero_flag);
     
-    if (sm_choose_scanroutine(vars->options.scan_data_type, match_type) == false)
-    {
+    if (sm_choose_scanroutine(vars->options.scan_data_type, match_type)
+            == false) {
         show_error("unsupported scan for current data type.\n"); 
         return false;
     }
@@ -468,7 +513,6 @@ bool sm_searchregions(globals_t *vars, scan_match_type_t match_type, const userv
     /* stop and attach to the target */
     if (sm_attach(vars->target) == false)
         return false;
-
    
     /* make sure we have some regions to search */
     if (vars->regions->size == 0) {
@@ -480,7 +524,9 @@ bool sm_searchregions(globals_t *vars, scan_match_type_t match_type, const userv
     total_size = sizeof(matches_and_old_values_array);
 
     while (n) {
-        total_size += ((region_t *)(n->data))->size * sizeof(old_value_and_match_info) + sizeof(matches_and_old_values_swath);
+        total_size += ((region_t *)(n->data))->size
+            * sizeof(old_value_and_match_info)
+            + sizeof(matches_and_old_values_swath);
         n = n->next;
     }
     
@@ -521,7 +567,10 @@ bool sm_searchregions(globals_t *vars, scan_match_type_t match_type, const userv
         progress_per_dot = (double)bytes_per_dot / total_scan_bytes;
 
 #if HAVE_PROCMEM        
-        /* over allocate by enough bytes set to zero that the last bytes can be read as 64-bit ints */
+        /* 
+         * over allocate by enough bytes set to zero
+         * that the last bytes can be read as 64-bit ints
+         */
         if ((data = calloc(r->size + sizeof(int64_t) - 1, 1)) == NULL) {
             show_error("sorry, there was a memory allocation error.\n");
             return false;
@@ -529,23 +578,27 @@ bool sm_searchregions(globals_t *vars, scan_match_type_t match_type, const userv
     
         /* keep reading until completed */
         while (nread < r->size) {
-            if ((len = readregion(vars->target, data+nread, r->size-nread, (unsigned long)(r->start+nread))) == -1) {
+            if ((len = readregion(vars->target, data+nread, r->size-nread,
+                                  (unsigned long)(r->start+nread))) == -1)
                 /* no, continue with whatever data was read */
                 break;
-            } else {
+            else
                 /* some data was read */
                 nread += len;
-            }
         }
 
 #else     
         /* cannot use /proc/pid/mem */
         nread = r->size;
 #endif
-        /* print a progress meter so user knows we havent crashed */
-        /* cannot use show_info here because it'll append a '\n' */
+        /*
+         * print a progress meter so user knows we havent crashed
+         *
+         * cannot use show_info here because it'll append a '\n'
+         */
         show_user("%02u/%02u searching %#10lx - %#10lx.", ++regnum,
-                vars->regions->size, (unsigned long)r->start, (unsigned long)r->start + r->size);
+                  vars->regions->size, (unsigned long)r->start,
+                  (unsigned long)r->start + r->size);
         fflush(stderr);
 
         /* for every offset, check if we have a match */
@@ -560,31 +613,30 @@ bool sm_searchregions(globals_t *vars, scan_match_type_t match_type, const userv
             address = r->start + offset;
 
 #if HAVE_PROCMEM
-            /* Don't dereference as this causes an alignment issue e.g. on ARM.
-               GCC replaces memcpy() with dereferencing where possible. */
+            /*
+             * Don't dereference as this causes an alignment issue e.g. on ARM.
+             * GCC replaces memcpy() with dereferencing where possible.
+             */
             memcpy(&data_value.int64_value, &data[offset], sizeof(int64_t));
 
             /* Mark which values this can't be */
-            if (EXPECT((nread - offset < sizeof(int64_t)), false))
-            {
-                data_value.flags.u64b = data_value.flags.s64b = data_value.flags.f64b = 0;
-                if (nread - offset < sizeof(int32_t))
-                {
-                    data_value.flags.u32b = data_value.flags.s32b = data_value.flags.f32b = 0;
-                    if (nread - offset < sizeof(int16_t))
-                    {
+            if (EXPECT((nread - offset < sizeof(int64_t)), false)) {
+                data_value.flags.u64b = data_value.flags.s64b =
+                data_value.flags.f64b = 0;
+                if (nread - offset < sizeof(int32_t)) {
+                    data_value.flags.u32b = data_value.flags.s32b = 
+                    data_value.flags.f32b = 0;
+                    if (nread - offset < sizeof(int16_t)) {
                         data_value.flags.u16b = data_value.flags.s16b = 0;
                         if (nread - offset < sizeof(int8_t))
-                        {
-                            data_value.flags.u8b  = data_value.flags.s8b  = 0;
-                        }
+                            data_value.flags.u8b = data_value.flags.s8b = 0;
                     }
                 }
             }
 #else
-            if (EXPECT(peekdata(vars->target, address, &data_value) == false, false)) {
+            if (EXPECT(peekdata(vars->target, address, &data_value)
+                    == false, false))
                 break;
-            }
 #endif
 
             fix_endianness(vars, &data_value);
@@ -597,22 +649,27 @@ bool sm_searchregions(globals_t *vars, scan_match_type_t match_type, const userv
             if (EXPECT(((match_length = (*sm_scan_routine)(&data_value, NULL,
                     uservalue, &checkflags, address)) > 0), false)) {
                 /* only set these flags for numbers */
-                if ((vars->options.scan_data_type != BYTEARRAY)
-                    && (vars->options.scan_data_type != STRING))
-                {
+                if ((vars->options.scan_data_type != BYTEARRAY) &&
+                    (vars->options.scan_data_type != STRING   ))
                     checkflags.ineq_forwards = checkflags.ineq_reverse = 1;
-                }
-                old_value_and_match_info new_value = { get_u8b(&data_value), checkflags };
-                writing_swath_index = add_element((&vars->matches), writing_swath_index, r->start + offset, &new_value);
-                
+                old_value_and_match_info new_value = { get_u8b(&data_value),
+                                                       checkflags };
+                writing_swath_index = add_element((&vars->matches)    ,
+                                                  writing_swath_index ,
+                                                  r->start + offset   ,
+                                                  &new_value);
                 ++vars->num_matches;
                 
                 required_extra_bytes_to_record = match_length - 1;
             }
             else if (required_extra_bytes_to_record)
             {
-                old_value_and_match_info new_value = { get_u8b(&data_value), zero_flag };
-                writing_swath_index = add_element((&vars->matches), writing_swath_index, r->start + offset, &new_value);
+                old_value_and_match_info new_value = { get_u8b(&data_value),
+                                                       zero_flag };
+                writing_swath_index = add_element((&vars->matches)    ,
+                                                  writing_swath_index ,
+                                                  r->start + offset   ,
+                                                  &new_value);
                 --required_extra_bytes_to_record;
             }
 
@@ -640,9 +697,10 @@ bool sm_searchregions(globals_t *vars, scan_match_type_t match_type, const userv
     /* tell front-end we've done */
     vars->scan_progress = MAX_PROGRESS;
     
-    if (!(vars->matches = null_terminate(vars->matches, writing_swath_index /* ,MATCHES_AND_VALUES */)))
-    {
-        show_error("memory allocation error while reducing matches-array size\n");
+    if (!(vars->matches = null_terminate(vars->matches, writing_swath_index
+                                         /* ,MATCHES_AND_VALUES */))) {
+        show_error("memory allocation error while reducing matches-array "
+                   "size\n");
         return false;
     }
 
@@ -657,65 +715,68 @@ bool sm_setaddr(pid_t target, void *addr, const value_t *to)
     value_t saved;
     int i;
 
-    if (sm_attach(target) == false) {
+    if (sm_attach(target) == false)
         return false;
-    }
 
     if (sm_peekdata(target, addr, &saved) == false) {
         show_error("couldnt access the target address %10p\n", addr);
         return false;
     }
     
-    /* Basically, overwrite as much of the data as makes sense, and no more. */
-    /* about float/double: now value_t is a union, we can use the following way instead of the commented way, in order to avoid compiler warning */
-         if (saved.flags.u64b && to->flags.u64b) { set_u64b(&saved, get_u64b(to)); }
-    else if (saved.flags.s64b && to->flags.s64b) { set_s64b(&saved, get_s64b(to)); }
-    else if (saved.flags.f64b && to->flags.f64b) { set_s64b(&saved, get_s64b(to)); } /* *((int64_t *)&(to->float64_value))); } */
-    else if (saved.flags.u32b && to->flags.u32b) { set_u32b(&saved, get_u32b(to)); }
-    else if (saved.flags.s32b && to->flags.s32b) { set_s32b(&saved, get_s32b(to)); }
-    else if (saved.flags.f32b && to->flags.f32b) { set_s32b(&saved, get_s32b(to)); } /* *((int32_t *)&(to->float32_value))); } */
-    else if (saved.flags.u16b && to->flags.u16b) { set_u16b(&saved, get_u16b(to)); }
-    else if (saved.flags.s16b && to->flags.s16b) { set_s16b(&saved, get_s16b(to)); }
-    else if (saved.flags.u8b  && to->flags.u8b ) { set_u8b(&saved, get_u8b(to)); }
-    else if (saved.flags.s8b  && to->flags.s8b ) { set_s8b(&saved, get_s8b(to)); }
+    /*
+     * Basically, overwrite as much of the data as makes sense, and no more.
+     * about float/double: now value_t is a union, we can use the following
+     * way instead of the commented way, in order to avoid compiler warning
+     */
+         if (saved.flags.u64b && to->flags.u64b) set_u64b(&saved, get_u64b(to));
+    else if (saved.flags.s64b && to->flags.s64b) set_s64b(&saved, get_s64b(to));
+    else if (saved.flags.f64b && to->flags.f64b) set_s64b(&saved, get_s64b(to));
+            /* *((int64_t *)&(to->float64_value))); } */
+    else if (saved.flags.u32b && to->flags.u32b) set_u32b(&saved, get_u32b(to));
+    else if (saved.flags.s32b && to->flags.s32b) set_s32b(&saved, get_s32b(to));
+    else if (saved.flags.f32b && to->flags.f32b) set_s32b(&saved, get_s32b(to));            /* *((int32_t *)&(to->float32_value))); } */
+    else if (saved.flags.u16b && to->flags.u16b) set_u16b(&saved, get_u16b(to));
+    else if (saved.flags.s16b && to->flags.s16b) set_s16b(&saved, get_s16b(to));
+    else if (saved.flags.u8b  && to->flags.u8b ) set_u8b( &saved, get_u8b(to) );
+    else if (saved.flags.s8b  && to->flags.s8b ) set_s8b( &saved, get_s8b(to) );
     else {
         show_error("could not determine type to poke.\n");
         return false;
     }
 
-    /* TODO: may use /proc/<pid>/mem here */
-    /* assume that sizeof(save.int64_value) (int64_t) is multiple of sizeof(long) */
+    /*
+     * TODO: may use /proc/<pid>/mem here
+     *
+     * assume that sizeof(save.int64_value) (int64_t)
+     * is multiple of sizeof(long)
+     */
     for (i = 0; i < sizeof(saved.int64_value); i += sizeof(long)) 
-    {
-        if (ptrace(PTRACE_POKEDATA, target, addr + i, *(long *)(((int8_t *)&saved.int64_value) + i)) == -1L) {
+        if (ptrace(PTRACE_POKEDATA, target, addr + i,
+                   *(long *)(((int8_t *)&saved.int64_value) + i)) == -1L)
             return false;
-        }
-    }
 
     return sm_detach(target);
 }
 
 bool sm_read_array(pid_t target, void *addr, char *buf, int len)
 {
-    if (sm_attach(target) == false) {
+    if (sm_attach(target) == false)
         return false;
-    }
 
 #if HAVE_PROCMEM
     unsigned nread=0;
     ssize_t tmpl;
     while (nread < len) {
-        if ((tmpl = readregion(target, buf+nread, len-nread, (unsigned long)(addr+nread))) == -1) {
+        if ((tmpl = readregion(target, buf+nread, len-nread,
+                               (unsigned long)(addr+nread))) == -1)
             /* no, continue with whatever data was read */
             break;
-        } else {
+        else
             /* some data was read */
             nread += tmpl;
-        }
     }
 
-    if (nread < len)
-    {
+    if (nread < len) {
         sm_detach(target);
         return false;
     }
@@ -723,10 +784,11 @@ bool sm_read_array(pid_t target, void *addr, char *buf, int len)
     return sm_detach(target);
 #else
     int i;
-    /* here we just read long by long, this should be ok for most of time */
-    /* partial hit is not handled */
-    for(i = 0; i < len; i += sizeof(long))
-    {
+    /*
+     * here we just read long by long, this should be ok for most of time
+     * partial hit is not handled
+     */
+    for (i = 0; i < len; i += sizeof(long)) {
         errno = 0;
         *((long *)(buf+i)) = ptrace(PTRACE_PEEKDATA, target, addr+i, NULL);
         if (EXPECT((*((long *)(buf+i)) == -1L) && (errno != 0), false)) {
@@ -744,48 +806,44 @@ bool sm_write_array(pid_t target, void *addr, const void *data, int len)
     int i,j;
     long peek_value;
 
-    if (sm_attach(target) == false) {
+    if (sm_attach(target) == false)
         return false;
-    }
 
     for (i = 0; i + sizeof(long) < len; i += sizeof(long))
-    {
-        if (ptrace(PTRACE_POKEDATA, target, addr + i, *(long *)(data + i)) == -1L) {
+        if (ptrace(PTRACE_POKEDATA, target, addr + i, *(long *)(data + i))
+                == -1L)
             return false;
-        }
-    }
 
-    if (len - i > 0) /* something left (shorter than a long) */
-    {
-        if (len > sizeof(long)) /* rewrite last sizeof(long) bytes of the buffer */
-        {
-            if (ptrace(PTRACE_POKEDATA, target, addr + len - sizeof(long), *(long *)(data + len - sizeof(long))) == -1L) {
+    if (len - i > 0) { /* something left (shorter than a long) */
+        if (len > sizeof(long)) {
+            /* rewrite last sizeof(long) bytes of the buffer */
+            if (ptrace(PTRACE_POKEDATA, target, addr + len - sizeof(long),
+                       *(long *)(data + len - sizeof(long))) == -1L)
                 return false;
-            }
-        }
-        else /* we have to play with bits... */
-        {
-            /* try all possible shifting read & write */
-            for(j = 0; j <= sizeof(long) - (len - i); ++j)
-            {
+        } else {
+            /* 
+             * we have to play with bits...
+             *
+             * try all possible shifting read & write
+             */
+            for (j = 0; j <= sizeof(long) - (len - i); ++j) {
                 errno = 0;
-                if(((peek_value = ptrace(PTRACE_PEEKDATA, target, addr - j, NULL)) == -1L) && (errno != 0))
-                {
-                    if (errno == EIO || errno == EFAULT) /* may try next shift */
+
+                if (((peek_value = ptrace(PTRACE_PEEKDATA, target, addr - j,
+                                          NULL)) == -1L) && (errno != 0)) {
+                    if (errno == EIO || errno == EFAULT)
+                        /* may try next shift */
                         continue;
-                    else
-                    {
+                    else {
                         show_error("%s failed.\n", __func__);
                         return false;
                     }
-                }
-                else /* peek success */
-                {
+                } else { /* peek success */
                     /* write back */
                     memcpy(((int8_t*)&peek_value)+j, data+i, len-i);        
 
-                    if (ptrace(PTRACE_POKEDATA, target, addr - j, peek_value) == -1L)
-                    {
+                    if (ptrace(PTRACE_POKEDATA, target, addr - j, peek_value)
+                            == -1L) {
                         show_error("%s failed.\n", __func__);
                         return false;
                     }
