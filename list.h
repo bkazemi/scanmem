@@ -35,18 +35,18 @@ typedef struct {
 list_t *l_init(void);
 
 /* destroy the whole list */
-void l_destroy(list_t * list);
+void l_destroy(list_t *);
 
 /* add a new element to the list */
-int l_append(list_t * list, element_t * element, void *data);
+int l_append(list_t *, element_t *, void *);
 
 /* remove the element at element->next */
-void l_remove(list_t * list, element_t * element, void **data);
+void l_remove(list_t *, element_t *, void **);
 
 /* remove the nth element from head */
-void l_remove_nth(list_t * list, unsigned n, void **data);
+void l_remove_nth(list_t *, unsigned, void **);
 
 /* remove all elements from *src, and append to dst */
-int l_concat(list_t *dst, list_t **src);
+int l_concat(list_t *, list_t **);
 
 #endif /* LIST_H */

@@ -42,7 +42,7 @@
 #include <stdbool.h>
 #include <time.h>
 #include <sys/time.h>
-#include <limits.h>            /* to determine the word width */
+#include <limits.h> /* to determine the word width */
 #include <errno.h>
 #include <inttypes.h>
 #include <ctype.h>
@@ -88,10 +88,11 @@
 
 bool handler__set(globals_t * vars, char **argv, unsigned argc)
 {
-    unsigned block, seconds = 1;
-    char *delay = NULL;
-    char *end;
-    bool cont = false;
+    unsigned blk, seconds = 1;
+    char    *delay = NULL;
+    char    *end;
+    bool     cont = false;
+
     struct setting {
         char *matchids;
         char *value;
@@ -127,23 +128,22 @@ bool handler__set(globals_t * vars, char **argv, unsigned argc)
     settings = calloca(argc - 1, sizeof(struct setting));
 
     /* parse every block into a settings struct */
-    for (block = 0; block < argc - 1; block++) {
-
+    for (blk = 0; blk < argc - 1; blk++) {
         /*
          * first seperate the block into matches and value,
          * which are separated by '='
          */
-        if ((settings[block].value = strchr(argv[block + 1], '=')) == NULL)
+        if ((settings[blk].value = strchr(argv[blk + 1], '=')) == NULL)
             /* no '=' found, whole string must be the value */
-            settings[block].value = argv[block + 1];
+            settings[blk].value = argv[blk + 1];
         else {
             /*
              * there is a '=', value+1 points to value string.
              * use strndupa() to copy the matchids into a new buffer.
              */
-            settings[block].matchids =
-                strndupa(argv[block + 1],
-                         (size_t) (settings[block].value++ - argv[block + 1]));
+            settings[blk].matchids =
+                strndupa(argv[blk + 1],
+                         (size_t)(settings[blk].value++ - argv[blk + 1]));
         }
 
         /*
@@ -152,16 +152,16 @@ bool handler__set(globals_t * vars, char **argv, unsigned argc)
          *
          * Now check for a delay suffix (meaning continuous mode), eg 0xff/10
          */
-        if ((delay = strchr(settings[block].value, '/')) != NULL) {
+        if ((delay = strchr(settings[blk].value, '/')) != NULL) {
             char *end = NULL;
 
             /* parse delay count */
-            settings[block].seconds = strtoul(delay + 1, &end, 10);
+            settings[blk].seconds = strtoul(delay + 1, &end, 10);
 
             if (*(delay + 1) == '\0') {
                 /* empty delay count, eg: 12=32/ */
                 show_error("you specified an empty delay count, `%s`, "
-                           "see `help set`.\n", settings[block].value);
+                           "see `help set`.\n", settings[blk].value);
                 return false;
             } else if (*end != '\0') {
                 /*
@@ -169,29 +169,29 @@ bool handler__set(globals_t * vars, char **argv, unsigned argc)
                  * e.g. 34=9/16foo
                  */
                 show_error("trailing garbage after delay count, `%s`.\n",
-                           settings[block].value);
+                           settings[blk].value);
                 return false;
-            } else if (settings[block].seconds == 0) {
+            } else if (settings[blk].seconds == 0) {
                 /* 10=24/0 disables continous mode */
                 show_info("you specified a zero delay, disabling "
                           "continuous mode.\n");
             } else {
                 /* valid delay count seen and understood */
                 show_info("setting %s every %u seconds until interrupted...\n",
-                          settings[block].matchids ? settings[block].matchids
+                          settings[blk].matchids ? settings[blk].matchids
                                                    : "all",
-                          settings[block].seconds);
+                          settings[blk].seconds);
 
                 /* continuous mode on */
                 cont = true;
             }
 
             /* remove any delay suffix from the value */
-            settings[block].value =
-                strndupa(settings[block].value,
-                         (size_t) (delay - settings[block].value));
+            settings[blk].value =
+                strndupa(settings[blk].value,
+                         (size_t)(delay - settings[blk].value));
         }                       /* if (strchr('/')) */
-    }                           /* for(block...) */
+    }                           /* for(blk...) */
 
     /* setup a longjmp to handle interrupt */
     if (INTERRUPTABLE()) {
@@ -206,7 +206,7 @@ bool handler__set(globals_t * vars, char **argv, unsigned argc)
         uservalue_t userval;
 
         /* for every settings struct */
-        for (block = 0; block < argc - 1; block++) {
+        for (blk = 0; blk < argc - 1; blk++) {
             /* check if this block has anything to do this iteration */
             if (seconds != 1)
                 /*
@@ -219,23 +219,23 @@ bool handler__set(globals_t * vars, char **argv, unsigned argc)
                  * if seconds % settings.seconds is zero, then this block
                  * must be executed
                  */
-                if ( settings[block].seconds            == 0 ||
-                    (seconds % settings[block].seconds) != 0)
+                if ( settings[blk].seconds            == 0 ||
+                    (seconds % settings[blk].seconds) != 0)
                     continue;
 
             /* convert value */
-            if (!parse_uservalue_number(settings[block].value, &userval)) {
-                show_error("bad number `%s` provided\n", settings[block].value);
+            if (!parse_uservalue_number(settings[blk].value, &userval)) {
+                show_error("bad number `%s` provided\n", settings[blk].value);
                 goto fail;
             }
 
             /* check if specific match(s) were specified */
-            if (settings[block].matchids != NULL) {
-                char *id, *lmatches = NULL;
+            if (settings[blk].matchids != NULL) {
+                char    *id, *lmatches = NULL;
                 unsigned num = 0;
 
                 /* create local copy of the matchids for strtok() to modify */
-                lmatches = strdupa(settings[block].matchids);
+                lmatches = strdupa(settings[blk].matchids);
 
                 /* now seperate each match, spearated by commas */
                 while ((id = strtok(lmatches, ",")) != NULL) {
@@ -258,7 +258,7 @@ bool handler__set(globals_t * vars, char **argv, unsigned argc)
                     if (loc.swath) {
                         value_t v;
                         value_t old;
-                        void *address =
+                        void *addr =
                             remote_address_of_nth_element(loc.swath, loc.index
                                                      /* ,MATCHES_AND_VALUES */);
 
@@ -273,12 +273,12 @@ bool handler__set(globals_t * vars, char **argv, unsigned argc)
                                                  .match_info;
                         uservalue2value(&v, &userval);
                         
-                        show_info("setting *%p to %#"PRIx64"...\n", address,
+                        show_info("setting *%p to %#"PRIx64"...\n", addr,
                                   v.int64_value);
 
                         /* set the value specified */
                         fix_endianness(vars, &v);
-                        if (sm_setaddr(vars->target, address, &v) == false) {
+                        if (sm_setaddr(vars->target, addr, &v) == false) {
                             show_error("failed to set a value.\n");
                             goto fail;
                         }
@@ -290,54 +290,54 @@ bool handler__set(globals_t * vars, char **argv, unsigned argc)
                     }
                 }
             } else {
-                matches_and_old_values_swath *reading_swath_index = 
+                matches_and_old_values_swath *reading_swath_idx = 
                     (matches_and_old_values_swath *)vars->matches->swaths;
-                int reading_iterator = 0;
+                int reading_iter = 0;
 
                 /* user wants to set all matches */
-                while (reading_swath_index->first_byte_in_child) {
+                while (reading_swath_idx->first_byte_in_child) {
                     /* Only actual matches are considered */
-                    if (flags_to_max_width_in_bytes(reading_swath_index
-                                                     ->data[reading_iterator]
+                    if (flags_to_max_width_in_bytes(reading_swath_idx
+                                                     ->data[reading_iter]
                                                        .match_info) > 0) {
-                        void *address = 
-                            remote_address_of_nth_element(reading_swath_index,
-                                                          reading_iterator
+                        void *addr = 
+                            remote_address_of_nth_element(reading_swath_idx,
+                                                          reading_iter
                                                      /* ,MATCHES_AND_VALUES */);
 
                         /* XXX: as above : make sure the sizes match */
-                        value_t old = data_to_val(reading_swath_index,
-                                                  reading_iterator
+                        value_t old = data_to_val(reading_swath_idx,
+                                                  reading_iter
                                               /* ,MATCHES_AND_VALUES */);
                         value_t v;
                         zero_value(&v);
-                        v.flags = old.flags = reading_swath_index
-                                               ->data[reading_iterator]
+                        v.flags = old.flags = reading_swath_idx
+                                               ->data[reading_iter]
                                                  .match_info;
                         uservalue2value(&v, &userval);
 
-                        show_info("setting *%p to %#"PRIx64"...\n", address,
+                        show_info("setting *%p to %#"PRIx64"...\n", addr,
                                   v.int64_value);
 
                         fix_endianness(vars, &v);
-                        if (sm_setaddr(vars->target, address, &v) == false) {
+                        if (sm_setaddr(vars->target, addr, &v) == false) {
                             show_error("failed to set a value.\n");
                             goto fail;
                         }
                     }
                      
                      /* Go on to the next one... */
-                    ++reading_iterator;
-                    if (reading_iterator >= reading_swath_index
+                    ++reading_iter;
+                    if (reading_iter >= reading_swath_idx
                                               ->number_of_bytes) {
-                        reading_swath_index =
+                        reading_swath_idx =
                             local_address_beyond_last_element(
-                                reading_swath_index /* ,MATCHES_AND_VALUES */);
-                        reading_iterator = 0;
+                                reading_swath_idx /* ,MATCHES_AND_VALUES */);
+                        reading_iter = 0;
                     }
                 }
             }                   /* if (matchid != NULL) else ... */
-        }                       /* for(block) */
+        }                       /* for(blk) */
 
         if (cont)
             sleep(1);
@@ -364,12 +364,12 @@ fail:
  */
 bool handler__list(globals_t *vars, char **argv, unsigned argc)
 {
-    unsigned i = 0;
-    int buf_len = 128; /* will be realloc later if necessary */
+    unsigned   i = 0;
+    int        buf_len = 128; /* will be realloc later if necessary */
     element_t *np = NULL;
-    char *v;
-    char *bytearray_suffix = ", [bytearray]";
-    char *string_suffix    = ", [string]";
+    char      *v;
+    char      *bytearray_suffix = ", [bytearray]";
+    char      *string_suffix    = ", [string]";
 
     if ((v = malloc(buf_len)) == NULL) {
         show_error("memory allocation failed.\n");
@@ -385,14 +385,14 @@ bool handler__list(globals_t *vars, char **argv, unsigned argc)
     if (vars->regions)
         np = vars->regions->head;
 
-    matches_and_old_values_swath *reading_swath_index =
+    matches_and_old_values_swath *reading_swath_idx =
         (matches_and_old_values_swath *)vars->matches->swaths;
 
-    int reading_iterator = 0;
+    int reading_iter = 0;
 
     /* list all known matches */
-    while (reading_swath_index->first_byte_in_child) {
-        match_flags flags = reading_swath_index->data[reading_iterator]
+    while (reading_swath_idx->first_byte_in_child) {
+        match_flags flags = reading_swath_idx->data[reading_iter]
                                                 .match_info;
 
         /* Only actual matches are considered */
@@ -408,12 +408,13 @@ bool handler__list(globals_t *vars, char **argv, unsigned argc)
                     show_error("memory allocation failed.\n");
                     return false;
                 }
-                data_to_bytearray_text(v, buf_len, reading_swath_index,
-                                       reading_iterator,
+                data_to_bytearray_text(v, buf_len, reading_swath_idx,
+                                       reading_iter,
                                        flags.bytearray_length);
                 /* XXX: or maybe realloc is better? */
                 assert(strlen(v) + strlen(bytearray_suffix) + 1 <= buf_len);
                 strcat(v, bytearray_suffix);
+
                 break;
             case STRING:
                 ; /* cheat gcc */
@@ -424,38 +425,43 @@ bool handler__list(globals_t *vars, char **argv, unsigned argc)
                     show_error("memory allocation failed.\n");
                     return false;
                 }
-                data_to_printable_string(v, buf_len, reading_swath_index,
-                                         reading_iterator, flags.string_length);
+                data_to_printable_string(v, buf_len, reading_swath_idx,
+                                         reading_iter, flags.string_length);
                 /* XXX: or maybe realloc is better? */
                 assert(strlen(v) + strlen(string_suffix) + 1 <= buf_len);
                 strcat(v, string_suffix);
+
                 break;
             default: /* numbers */
                 ; /* cheat gcc */
-                value_t val = data_to_val(reading_swath_index, reading_iterator
+                value_t val = data_to_val(reading_swath_idx, reading_iter
                                       /* ,MATCHES_AND_VALUES */);
                 truncval_to_flags(&val, flags);
 
                 valtostr(&val, v, buf_len);
+
                 break;
             }
 
-            void *address = remote_address_of_nth_element(reading_swath_index,
-                reading_iterator /* ,MATCHES_AND_VALUES */);
-            unsigned long address_ul = (unsigned long)address;
-            int region_id = 99;
-            unsigned long match_off = 0;
-            const char *region_type = "??";
-            /* get region info belonging to the match -
+            void *addr = remote_address_of_nth_element(reading_swath_idx,
+                reading_iter /* ,MATCHES_AND_VALUES */);
+
+            unsigned long addr_ul     = (unsigned long)addr;
+            int           region_id   = 99;
+            unsigned long match_off   = 0;
+            const char   *region_type = "??";
+            /*
+             * get region info belonging to the match -
              * note: we assume the regions list and matches to be sorted
              */
             while (np) {
-                region_t *region = np->data;
+                region_t     *region       = np->data;
                 unsigned long region_start = (unsigned long)region->start;
-                if (address_ul < region_start + region->size &&
-                  address_ul >= region_start) {
+
+                if (addr_ul <  region_start + region->size &&
+                    addr_ul >= region_start) {
                     region_id = region->id;
-                    match_off = address_ul - region->load_addr;
+                    match_off = addr_ul - region->load_addr;
                     region_type = region_type_names[region->type];
                     break;
                 }
@@ -463,15 +469,15 @@ bool handler__list(globals_t *vars, char **argv, unsigned argc)
             }
             fprintf(stdout, "[%2u] "POINTER_FMT", %2u + "POINTER_FMT", %5s, "
                             " %s\n", 
-                    i++, address_ul, region_id, match_off, region_type, v);
+                    i++, addr_ul, region_id, match_off, region_type, v);
         }
 
         /* Go on to the next one... */
-        ++reading_iterator;
-        if (reading_iterator >= reading_swath_index->number_of_bytes) {
-            reading_swath_index = local_address_beyond_last_element(
-                reading_swath_index /* ,MATCHES_AND_VALUES */);
-            reading_iterator = 0;
+        ++reading_iter;
+        if (reading_iter >= reading_swath_idx->number_of_bytes) {
+            reading_swath_idx = local_address_beyond_last_element(
+                reading_swath_idx /* ,MATCHES_AND_VALUES */);
+            reading_iter = 0;
         }
     }
 
@@ -483,8 +489,8 @@ out_free:
 /* XXX: handle multiple deletes, eg delete !1 2 3 4 5 6 */
 bool handler__delete(globals_t * vars, char **argv, unsigned argc)
 {
-    unsigned id;
-    char *end = NULL;
+    unsigned       id;
+    char          *end = NULL;
     match_location loc;
 
     if (argc != 2) {
@@ -554,7 +560,7 @@ bool handler__reset(globals_t * vars, char **argv, unsigned argc)
 bool handler__pid(globals_t * vars, char **argv, unsigned argc)
 {
     char *resetargv[] = { "reset", NULL };
-    char *end = NULL;
+    char *end         = NULL;
 
     if (argc == 2) {
         vars->target = (pid_t) strtoul(argv[1], &end, 0x00);
@@ -579,7 +585,6 @@ bool handler__snapshot(globals_t *vars, char **argv, unsigned argc)
 {
     USEPARAMS();
     
-
     /* check that a pid has been specified */
     if (vars->target == 0) {
         show_error("no target set, type `help pid`.\n");
@@ -604,12 +609,12 @@ bool handler__snapshot(globals_t *vars, char **argv, unsigned argc)
 /* dregion [!][x][,x,...] */
 bool handler__dregion(globals_t *vars, char **argv, unsigned argc)
 {
-    unsigned id;
-    bool invert = false;
-    char *end = NULL, *idstr = NULL, *block = NULL;
+    unsigned   id;
+    bool       invert = false;
+    char      *end    = NULL, *idstr = NULL, *block = NULL;
     element_t *np, *pp;
-    list_t *keep = NULL;
-    region_t *save;
+    list_t    *keep   = NULL;
+    region_t  *save;
 
     /* need an argument */
     if (argc < 2) {
@@ -801,7 +806,7 @@ bool handler__lregions(globals_t * vars, char **argv, unsigned argc)
  */
 bool handler__decinc(globals_t * vars, char **argv, unsigned argc)
 {
-    uservalue_t val;
+    uservalue_t       val;
     scan_match_type_t m;
 
     USEPARAMS();
@@ -882,7 +887,7 @@ bool handler__version(globals_t *vars, char **argv, unsigned argc)
 
 bool handler__string(globals_t * vars, char **argv, unsigned argc)
 {
-    int i;
+    int         i;
     uservalue_t val;
 
     /* test scan_data_type */
@@ -946,13 +951,13 @@ static inline bool parse_uservalue_default(char *str, uservalue_t *val)
 
 bool handler__default(globals_t * vars, char **argv, unsigned argc)
 {
-    uservalue_t vals[2];
-    uservalue_t *val = &vals[0];
-    bytearray_element_t *array = NULL;
-    scan_match_type_t m = MATCHEQUALTO;
-    char *ustr = argv[0];
-    char *pos;
-    bool ret = false;
+    uservalue_t          vals[2];
+    uservalue_t         *val   = &vals[0];
+    bytearray_element_t *arr   = NULL;
+    scan_match_type_t    m     = MATCHEQUALTO;
+    char                *ustr  = argv[0];
+    char                *pos;
+    bool                 ret = false;
 
     USEPARAMS();
 
@@ -988,13 +993,13 @@ bool handler__default(globals_t * vars, char **argv, unsigned argc)
             break;
     case BYTEARRAY:
         /* attempt to parse command as a bytearray */
-        array = calloc(argc, sizeof(bytearray_element_t));
+        arr = calloc(argc, sizeof(bytearray_element_t));
     
-        if (array == NULL) {
+        if (arr == NULL) {
             show_error("there's a memory allocation error.\n");
             goto retl;
         }
-        if (!parse_uservalue_bytearray(argv, argc, array, val)) {
+        if (!parse_uservalue_bytearray(argv, argc, arr, val)) {
             show_error("unable to parse command `%s`\n", ustr);
             goto retl;
         }
@@ -1039,8 +1044,8 @@ bool handler__default(globals_t * vars, char **argv, unsigned argc)
     ret = true;
 
 retl:
-    if (array)
-        free(array);
+    if (arr)
+        free(arr);
 
     return ret;
 }
@@ -1076,14 +1081,15 @@ bool handler__exit(globals_t *vars, char **argv, unsigned argc)
 
 bool handler__help(globals_t *vars, char **argv, unsigned argc)
 {
-    bool ret = false;
-    list_t *commands = vars->commands;
-    element_t *np = NULL;
-    command_t *def = NULL;
-    assert(commands != NULL);
+    bool       ret  = false;
+    list_t    *cmds = vars->commands;
+    element_t *np   = NULL;
+    command_t *def  = NULL;
+
+    assert(cmds != NULL);
     assert(argc >= 1);
 
-    np = commands->head;
+    np = cmds->head;
 
     /* pager support, dirty ugly hardcoded */
     FILE *outfd = popen("more", "w"); 
@@ -1100,30 +1106,29 @@ bool handler__help(globals_t *vars, char **argv, unsigned argc)
 
     /* traverse the commands list, printing out the relevant documentation */
     while (np) {
-        command_t *command = np->data;
+        command_t *cmd = np->data;
 
         /* remember the default command */
-        if (command->command == NULL)
-            def = command;
+        if (cmd->command == NULL)
+            def = cmd;
 
         /* just `help` with no argument */
         if (argv[1] == NULL) {
             /* NULL shortdoc means dont print in help listing */
-            if (command->shortdoc == NULL) {
+            if (cmd->shortdoc == NULL) {
                 np = np->next;
                 continue;
             }
 
             /* print out command name */
-            fprintf(outfd, "%-*s%s\n", DOC_COLUMN, command->command
-                                                       ? command->command
-                                                       : "default",
-                    command->shortdoc);
-        } else if (command->command &&
-                   !strcasecmp(argv[1], command->command)) {
+            fprintf(outfd, "%-*s%s\n", DOC_COLUMN, cmd->command ? cmd->command
+                                                                : "default",
+                    cmd->shortdoc);
+        } else if (cmd->command &&
+                   !strcasecmp(argv[1], cmd->command)) {
             /* detailed information requested about specific command */
-            fprintf(outfd, "%s\n", command->longdoc ? command->longdoc
-                                                    : "missing documentation");
+            fprintf(outfd, "%s\n", cmd->longdoc ? cmd->longdoc
+                                                : "missing documentation");
             ret = true;
             goto retl;
         }
@@ -1158,9 +1163,9 @@ bool handler__eof(globals_t * vars, char **argv, unsigned argc)
 /* XXX: handle !ls style escapes */
 bool handler__shell(globals_t * vars, char **argv, unsigned argc)
 {
-    size_t len = argc;
+    size_t   len = argc;
     unsigned i;
-    char *command;
+    char    *cmd;
 
     USEPARAMS();
 
@@ -1174,16 +1179,16 @@ bool handler__shell(globals_t * vars, char **argv, unsigned argc)
         len += strlen(argv[i]);
 
     /* allocate space */
-    command = calloca(len, 1);
+    cmd = calloca(len, 1);
 
     /* concatenate strings */
     for (i = 1; i < argc; i++) {
-        strcat(command, argv[i]);
-        strcat(command, " ");
+        strcat(cmd, argv[i]);
+        strcat(cmd, " ");
     }
 
     /* finally execute command */
-    if (system(command) == -1) {
+    if (system(cmd) == -1) {
         show_error("system() failed, command was not executed.\n");
         return false;
     }
@@ -1193,13 +1198,13 @@ bool handler__shell(globals_t * vars, char **argv, unsigned argc)
 
 bool handler__watch(globals_t * vars, char **argv, unsigned argc)
 {
-    value_t o, n;
-    unsigned id;
-    char *end = NULL, buf[128], timestamp[64];
-    time_t t;
-    match_location loc;
-    value_t old_val;
-    void *address;
+    value_t          o, n;
+    unsigned         id;
+    char            *end = NULL, buf[128], timestamp[64];
+    time_t           t;
+    match_location   loc;
+    value_t          old_val;
+    void            *addr;
     scan_data_type_t data_type = vars->options.scan_data_type;
 
     if (argc != 2) {
@@ -1231,7 +1236,7 @@ bool handler__watch(globals_t * vars, char **argv, unsigned argc)
         return false;
     }
     
-    address = remote_address_of_nth_element(loc.swath, loc.index
+    addr = remote_address_of_nth_element(loc.swath, loc.index
                                          /* ,MATCHES_AND_VALUES */);
     old_val = data_to_val(loc.swath, loc.index /* ,MATCHES_AND_VALUES */);
     old_val.flags = loc.swath->data[loc.index].match_info;
@@ -1251,13 +1256,13 @@ bool handler__watch(globals_t * vars, char **argv, unsigned argc)
     strftime(timestamp, sizeof(timestamp), "[%T]", localtime(&t));
 
     show_info("%s monitoring %10p for changes until interrupted...\n",
-              timestamp, address);
+              timestamp, addr);
 
     while (true) {
         if (sm_attach(vars->target) == false)
             return false;
 
-        if (sm_peekdata(vars->target, address, &n) == false)
+        if (sm_peekdata(vars->target, addr, &n) == false)
             return false;
 
         truncval(&n, &old_val);
@@ -1265,10 +1270,10 @@ bool handler__watch(globals_t * vars, char **argv, unsigned argc)
         /* check if the new value is different */
         match_flags tmpflags;
         zero_match_flags(&tmpflags);
-        scan_routine_t valuecmp_routine =
+        scan_routine_t valcmp_routine =
             (sm_get_scanroutine(ANYNUMBER, MATCHCHANGED));
 
-        if (valuecmp_routine(&o, &n, NULL, &tmpflags, address)) {
+        if (valcmp_routine(&o, &n, NULL, &tmpflags, addr)) {
             valcpy(&o, &n);
             truncval(&o, &old_val);
 
@@ -1278,7 +1283,7 @@ bool handler__watch(globals_t * vars, char **argv, unsigned argc)
             t = time(NULL);
             strftime(timestamp, sizeof(timestamp), "[%T]", localtime(&t));
 
-            show_info("%s %10p -> %s\n", timestamp, address, buf);
+            show_info("%s %10p -> %s\n", timestamp, addr, buf);
         }
 
         /*
@@ -1302,11 +1307,11 @@ bool handler__show(globals_t * vars, char **argv, unsigned argc)
         return false;
     }
     
-    if (strcmp(argv[1], "copying") == 0)
+    if (!strcmp(argv[1], "copying"))
         show_user(SM_COPYING);
-    else if (strcmp(argv[1], "warranty") == 0)
+    else if (!strcmp(argv[1], "warranty"))
         show_user(SM_WARRANTY);
-    else if (strcmp(argv[1], "version") == 0)
+    else if (!strcmp(argv[1], "version"))
         vars->printversion(stderr);
     else {
         show_error("unrecognized show command `%s`\n", argv[1]);
@@ -1321,8 +1326,8 @@ bool handler__dump(globals_t * vars, char **argv, unsigned argc)
     void *addr;
     char *endptr;
     char *buf = NULL;
-    int len;
-    bool dump_to_file = false;
+    int   len;
+    bool  dump_to_file = false;
     FILE *dump_f = NULL;
 
     if (argc < 3 || argc > 4) {
@@ -1382,7 +1387,7 @@ bool handler__dump(globals_t * vars, char **argv, unsigned argc)
         }  
     } else {
         /* print it out */
-        int i,j;
+        int i, j;
         int buf_idx = 0;
 
         for (i = 0; i + 16 < len; i += 16) {
@@ -1399,12 +1404,14 @@ bool handler__dump(globals_t * vars, char **argv, unsigned argc)
                 }
             printf("\n");
         }
+
         if (i < len) {
             if (vars->options.backend == 0)
                 printf("%p: ", addr+i);
 
             for (j = i; j < len; ++j)
                 printf("%02X ", (unsigned char)(buf[buf_idx++]));
+
             if (vars->options.dump_with_ascii) {
                 while (j%16 != 0) { /* skip "empty" numbers */
                     printf("   ");
@@ -1425,14 +1432,14 @@ bool handler__dump(globals_t * vars, char **argv, unsigned argc)
 
 bool handler__write(globals_t * vars, char **argv, unsigned argc)
 {
-    int data_width = 0;
+    int         data_width = 0;
     const char *fmt = NULL;
-    void *addr;
-    char *buf = NULL;
-    char *endptr;
-    int datatype; /* 0 for numbers, 1 for bytearray, 2 for string */
-    bool ret;
-    const char *string_parameter = NULL; /* used by string type */
+    void       *addr;
+    char       *buf = NULL;
+    char       *endptr;
+    int         datatype; /* 0 for numbers, 1 for bytearray, 2 for string */
+    bool        ret;
+    const char *string_param = NULL; /* used by string type */
 
     if (argc < 4) {
         show_error("bad arguments, see `help write`.\n");
@@ -1482,18 +1489,18 @@ bool handler__write(globals_t * vars, char **argv, unsigned argc)
          * (2 characters after the end of the 3rd paramter)
          */
         int i;
-        string_parameter = vars->current_cmdline;
+        string_param = vars->current_cmdline;
 
         for (i = 0; i < 3; i++) {
-            while ((string_parameter[0] == ' ' ) &&
-                   (string_parameter[0] == '\t'))
-                ++string_parameter;
-            while ((string_parameter[0] != ' ') &&
-                   (string_parameter[0] != '\t'))
-                ++string_parameter;
+            while ((string_param[0] == ' ' ) &&
+                   (string_param[0] == '\t'))
+                ++string_param;
+            while ((string_param[0] != ' ') &&
+                   (string_param[0] != '\t'))
+                ++string_param;
         }
-        ++string_parameter;
-        data_width = strlen(string_parameter);
+        ++string_param;
+        data_width = strlen(string_param);
         datatype = 2;
     } else { /* may support more types here later */
         show_error("bad data_type, see `help write`.\n");
@@ -1540,18 +1547,18 @@ bool handler__write(globals_t * vars, char **argv, unsigned argc)
     case 1: // bytearray
         ; /* cheat gcc */
         /* call parse_uservalue_bytearray */
-        bytearray_element_t *array = calloc(data_width,
+        bytearray_element_t *arr = calloc(data_width,
                                             sizeof(bytearray_element_t));
         uservalue_t val_buf;
 
-        if (array == NULL) {
+        if (arr == NULL) {
             show_error("memory allocation failed.\n");
             ret = false;
             goto retl;
         }
-        if (!parse_uservalue_bytearray(argv+3, argc-3, array, &val_buf)) {
+        if (!parse_uservalue_bytearray(argv+3, argc-3, arr, &val_buf)) {
             show_error("bad byte array speicified.\n");
-            free(array);
+            free(arr);
             ret = false;
             goto retl;
         }
@@ -1564,7 +1571,7 @@ bool handler__write(globals_t * vars, char **argv, unsigned argc)
         int i;
 
         for (i = 0; i < data_width; ++i) {
-            if (array[i].is_wildcard) {
+            if (arr[i].is_wildcard) {
                 wildcard_used = true;
                 break;
             }
@@ -1573,22 +1580,22 @@ bool handler__write(globals_t * vars, char **argv, unsigned argc)
         if (wildcard_used)
             if (!sm_read_array(vars->target, addr, buf, data_width)) {
                 show_error("read memory failed.\n");
-                free(array);
+                free(arr);
                 ret = false;
                 goto retl;
             }
 
         for(i = 0; i < data_width; ++i) {
-            bytearray_element_t *cur_element = array + i;
+            bytearray_element_t *cur_elem = arr + i;
 
-            if (cur_element->is_wildcard == 0)
-                buf[i] = cur_element->byte;
+            if (cur_elem->is_wildcard == 0)
+                buf[i] = cur_elem->byte;
         }
         free(array);
 
         break;
     case 2: /* string */
-        strncpy(buf, string_parameter, data_width);
+        strncpy(buf, string_param, data_width);
 
         break;
     default:
@@ -1673,10 +1680,10 @@ bool handler__option(globals_t * vars, char **argv, unsigned argc)
         /* data is host endian: don't swap */
         if (!strcmp(argv[2], "0"))
             vars->options.reverse_endianness = 0;
-        // data is little endian: swap if host is big endian
+        /* data is little endian: swap if host is big endian */
         else if (!strcmp(argv[2], "1"))
             vars->options.reverse_endianness = big_endian;
-        // data is big endian: swap if host is little endian
+        /* data is big endian: swap if host is little endian */
         else if (!strcmp(argv[2], "2"))
             vars->options.reverse_endianness = !big_endian;
         else {

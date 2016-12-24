@@ -41,15 +41,15 @@
 void valtostr(const value_t *val, char *str, size_t n)
 {
     char buf[128];
-    int np = 0;
-    int max_bytes = 0;
+    int  np                = 0;
+    int  max_bytes         = 0;
     bool print_as_unsigned = false;
 
-#define FLAG_MACRO(bytes, string) (val->flags.u##bytes##b &&                   \
-                                   val->flags.s##bytes##b)                     \
-                                ? (string " ") : (val->flags.u##bytes##b) ?    \
-                                    (string "u ") : (val->flags.s##bytes##b) ? \
-                                                    (string "s ") : ""
+#define FLAG_MACRO(bytes, str) (val->flags.u##bytes##b &&                   \
+                                   val->flags.s##bytes##b)                  \
+                                ? (str " ") : (val->flags.u##bytes##b) ?    \
+                                    (str "u ") : (val->flags.s##bytes##b) ? \
+                                                    (str "s ") : ""
     
     /* set the flags */
     np = snprintf(buf, sizeof(buf), "[%s%s%s%s%s%s%s]",
@@ -141,14 +141,14 @@ void uservalue2value(value_t *dst, const uservalue_t *src)
  * array must have been allocated, of size at least argc
  */
 bool parse_uservalue_bytearray(char **argv, unsigned argc,
-                               bytearray_element_t *array, uservalue_t *val)
+                               bytearray_element_t *arr, uservalue_t *val)
 {
     int i,j;
 
-    const char *cur_str;
-    char cur_char;
-    char *endptr;
-    bytearray_element_t *cur_element;
+    const char          *cur_str;
+    char                 cur_char;
+    char                *endptr;
+    bytearray_element_t *cur_elem;
 
     for (i = 0; i < argc; ++i) {
         /* get current string */
@@ -159,9 +159,9 @@ bool parse_uservalue_bytearray(char **argv, unsigned argc,
         if (j != 2) /* length is not 2 */
             return false;
 
-        cur_element = array + i;
+        cur_elem = arr + i;
         if (strcmp(cur_str, "??") == 0) {
-            cur_element->is_wildcard = 1;
+            cur_elem->is_wildcard = 1;
             continue;
         } else {
             /* parse as hex integer */
@@ -169,13 +169,13 @@ bool parse_uservalue_bytearray(char **argv, unsigned argc,
             if (*endptr != '\0')
                 return false;
 
-            cur_element->is_wildcard = 0;
-            cur_element->byte = cur_char;
+            cur_elem->is_wildcard = 0;
+            cur_elem->byte = cur_char;
         }
     }
 
     /* everything is ok */
-    val->bytearray_value = array;
+    val->bytearray_value = arr;
     val->flags.bytearray_length = argc;
     return true;
 }
@@ -232,7 +232,7 @@ bool parse_uservalue_number(const char *nptr, uservalue_t * val)
 bool parse_uservalue_int(const char *nptr, uservalue_t * val)
 {
     int64_t num;
-    char *endptr;
+    char   *endptr;
 
     assert(nptr != NULL);
     assert(val  != NULL);
@@ -289,7 +289,8 @@ bool parse_uservalue_int(const char *nptr, uservalue_t * val)
 bool parse_uservalue_float(const char *nptr, uservalue_t * val)
 {
     double num;
-    char *endptr;
+    char  *endptr;
+
     assert(nptr);
     assert(val);
 
@@ -352,8 +353,8 @@ type get_##signedness_letter##typename (const value_t const* val)       \
 	DEFINE_GET_BY_SYSTEM_DEPENDENT_TYPE_FUNCTION(unsigned type, typename, u) \
 	DEFINE_GET_BY_SYSTEM_DEPENDENT_TYPE_FUNCTION(signed   type, typename, s)
 
-DEFINE_GET_BY_SYSTEM_DEPENDENT_TYPE_FUNCTIONS(char,  char,         )
-DEFINE_GET_BY_SYSTEM_DEPENDENT_TYPE_FUNCTIONS(short, short,        )
-DEFINE_GET_BY_SYSTEM_DEPENDENT_TYPE_FUNCTIONS(int,   int,          )
-DEFINE_GET_BY_SYSTEM_DEPENDENT_TYPE_FUNCTIONS(long,  long,         )
+DEFINE_GET_BY_SYSTEM_DEPENDENT_TYPE_FUNCTIONS(char,  char)
+DEFINE_GET_BY_SYSTEM_DEPENDENT_TYPE_FUNCTIONS(short, short)
+DEFINE_GET_BY_SYSTEM_DEPENDENT_TYPE_FUNCTIONS(int,   int)
+DEFINE_GET_BY_SYSTEM_DEPENDENT_TYPE_FUNCTIONS(long,  long)
 DEFINE_GET_BY_SYSTEM_DEPENDENT_TYPE_FUNCTIONS(long   long, longlong)

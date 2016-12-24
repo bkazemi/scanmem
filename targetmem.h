@@ -164,38 +164,38 @@ local_address_beyond_last_element(matches_and_old_values_swath *swath)
 }
 
 static inline matches_and_old_values_array *
-allocate_enough_to_reach(matches_and_old_values_array *array,
+allocate_enough_to_reach(matches_and_old_values_array *arr,
                          void *last_byte_to_reach_plus_one,
                          matches_and_old_values_swath **swath_ptr_to_correct)
 {
-    unsigned long bytes_needed = (last_byte_to_reach_plus_one - (void *)array);
+    unsigned long bytes_needed = (last_byte_to_reach_plus_one - (void *)arr);
 
-    if (bytes_needed <= array->bytes_allocated) {
-        return array;
+    if (bytes_needed <= arr->bytes_allocated) {
+        return arr;
     } else {
-        matches_and_old_values_array *original_location = array;
+        matches_and_old_values_array *orig_location = arr;
 
         /*
          * Allocate twice as much each time
          * so we don't have to do it too often
          */
-        unsigned long bytes_to_allocate = array->bytes_allocated;
-        while (bytes_to_allocate < bytes_needed)
-            bytes_to_allocate *= 2;
+        unsigned long bytes_to_alloc = arr->bytes_allocated;
+        while (bytes_to_alloc < bytes_needed)
+            bytes_to_alloc *= 2;
 
-        show_debug("to_allocate %ld, max %ld\n", bytes_to_allocate,
-                   array->max_needed_bytes);
+        show_debug("to_allocate %ld, max %ld\n", bytes_to_alloc,
+                   arr->max_needed_bytes);
 
         /* Sometimes we know an absolute max that we will need */
-        if (array->max_needed_bytes < bytes_to_allocate) {
-            assert(array->max_needed_bytes >= bytes_needed);
-            bytes_to_allocate = array->max_needed_bytes;
+        if (arr->max_needed_bytes < bytes_to_alloc) {
+            assert(arr->max_needed_bytes >= bytes_needed);
+            bytes_to_alloc = arr->max_needed_bytes;
         }
 
-        if (!(array = realloc(array, bytes_to_allocate)))
+        if (!(arr = realloc(arr, bytes_to_alloc)))
             return NULL;
 
-        array->bytes_allocated = bytes_to_allocate;
+        arr->bytes_allocated = bytes_to_alloc;
 
         /*
          * Put the swath pointer back where it should be, if needed.
@@ -205,9 +205,9 @@ allocate_enough_to_reach(matches_and_old_values_array *array,
         if (swath_ptr_to_correct)
             (*swath_ptr_to_correct) = (matches_and_old_values_swath *)
                 (((void *)(*swath_ptr_to_correct)) +
-                 ((void *)array - (void *)original_location));
+                 ((void *)arr - (void *)orig_location));
 
-        return array;
+        return arr;
     }
 }
 
@@ -216,38 +216,38 @@ allocate_enough_to_reach(matches_and_old_values_array *array,
  * - i.e. the last swath in the array after the operation
  */
 static inline matches_and_old_values_swath *
-add_element(matches_and_old_values_array **array,
+add_element(matches_and_old_values_array **arr,
              matches_and_old_values_swath *swath,
-             void *remote_address, void *new_element)
+             void *remote_addr, void *new_elem)
 {
     if (swath->number_of_bytes == 0) {
         assert(swath->first_byte_in_child == NULL);
 
         /* We have to overwrite this as a new swath */
-        *array = allocate_enough_to_reach(*array, (void *)swath +
+        *arr = allocate_enough_to_reach(*arr, (void *)swath +
             sizeof(matches_and_old_values_swath) +
             sizeof(old_value_and_match_info), &swath);
 
-        swath->first_byte_in_child = remote_address;
+        swath->first_byte_in_child = remote_addr;
 
     } else {
-        unsigned long local_index_excess =
-            remote_address - remote_address_of_last_element(swath);
-        unsigned long local_address_excess =
-            local_index_excess * sizeof(old_value_and_match_info);
-        size_t needed_size =
+        unsigned long local_idx_excess =
+            remote_addr - remote_address_of_last_element(swath);
+        unsigned long local_addr_excess =
+            local_idx_excess * sizeof(old_value_and_match_info);
+        size_t needed_sz =
             sizeof(matches_and_old_values_swath) +
             sizeof(old_value_and_match_info);
 
-        if (local_address_excess >= needed_size) {
+        if (local_addr_excess >= needed_size) {
             /* It is most memory-efficient to start a new swath */
-            *array = allocate_enough_to_reach(*array,
+            *arr = allocate_enough_to_reach(*arr,
                 local_address_beyond_last_element(swath) +
                 sizeof(matches_and_old_values_swath) +
                 sizeof(old_value_and_match_info), &swath);
 
             swath = local_address_beyond_last_element(swath);
-            swath->first_byte_in_child = remote_address;
+            swath->first_byte_in_child = remote_addr;
             swath->number_of_bytes = 0;
 
         } else {
@@ -255,11 +255,11 @@ add_element(matches_and_old_values_array **array,
              * It is most memory-efficient to write over the intervening
              * space with null values
              */
-            *array = allocate_enough_to_reach(*array,
+            *arr = allocate_enough_to_reach(*arr,
                 local_address_beyond_last_element(swath) +
-                local_address_excess, &swath);
+                local_addr_excess, &swath);
 
-            switch (local_address_excess) {
+            switch (local_addr_excess) {
             case 4:
                 memset(local_address_beyond_last_element(swath), 0, 4);
                 break;
@@ -272,13 +272,13 @@ add_element(matches_and_old_values_array **array,
                        local_address_excess);
                 break;
             }
-            swath->number_of_bytes += local_index_excess - 1;
+            swath->number_of_bytes += local_idx_excess - 1;
         }
     }
 
     /* Add me */
     *(old_value_and_match_info *)local_address_beyond_last_element(swath) =
-        *(old_value_and_match_info *)new_element;
+        *(old_value_and_match_info *)new_elem;
 
     ++swath->number_of_bytes;
 
@@ -292,11 +292,11 @@ add_element(matches_and_old_values_array **array,
  */
 static inline value_t
 data_to_val_aux (matches_and_old_values_swath *swath,
-                 long index, long swath_length)
+                 long idx, long swath_len)
 {
     int i;
     value_t val;
-    int max_bytes = swath_length - index;
+    int max_bytes = swath_len - idx;
 
     zero_value(&val);
 
@@ -309,7 +309,7 @@ data_to_val_aux (matches_and_old_values_swath *swath,
     for (i = 0; i < max_bytes; i++) {
         uint8_t byte;
 
-        byte = ((matches_and_old_values_swath *)swath)->data[index + i]
+        byte = ((matches_and_old_values_swath *)swath)->data[idx + i]
                                                              .old_value;
         *((uint8_t *)(&val.int64_value) + i) = byte;
     }
@@ -318,9 +318,9 @@ data_to_val_aux (matches_and_old_values_swath *swath,
 }
 
 static inline value_t
-data_to_val (matches_and_old_values_swath *swath, long index)
+data_to_val (matches_and_old_values_swath *swath, long idx)
 {
-    return data_to_val_aux(swath, index, swath->number_of_bytes);
+    return data_to_val_aux(swath, idx, swath->number_of_bytes);
 }
 
 #endif /* TARGETMEM_H */

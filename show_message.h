@@ -40,19 +40,19 @@
 #define SHOW_MESSAGE_H
 
 /* prepend 'info: ', output to stderr */
-void show_info(const char *fmt, ...);
+void show_info(const char *, ...);
 /* prepend 'error: ', output to stderr */
-void show_error(const char *fmt, ...);
+void show_error(const char *, ...);
 /* prepend 'warn: ', output to stderr */
-void show_warn(const char *fmt, ...);
+void show_warn(const char *, ...);
 
 /* display message only when in debug mode */
-void show_debug(const char *fmt, ...);
+void show_debug(const char *, ...);
 
 /* display message only when not running as a backend */
-void show_user(const char *fmt, ...);
+void show_user(const char *, ...);
 
 /* display progress of scan */
-void show_scan_progress(unsigned long cur, unsigned long total);
+void show_scan_progress(unsigned long, unsigned long);
 
 #endif /* SHOW_MESSAGE_H */

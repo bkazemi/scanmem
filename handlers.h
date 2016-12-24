@@ -29,7 +29,7 @@
  * SHRTDOC's are one line descriptions of the supported command
  * (shown with `help`).
  * LONGDOC's are detailed descriptions (shown with `help command`)
- * (wrap them before column 79).
+ * (wrap them before column 79 including quotes).
  * 
  * The DOC's are passed to the registercommand() routine, and are read
  * by the help command. You can define SHRTDOC to NULL and help

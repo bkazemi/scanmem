@@ -77,10 +77,12 @@ static inline void swap_bytes_var(void *p, size_t num)
     switch (num) {
     case sizeof(uint16_t): ; /* empty statement to cheat the compiler */
         uint16_t i16 = swap_bytes16(*((uint16_t *)p));
+
         memcpy(p, &i16, sizeof(uint16_t));
         return;
     case sizeof(uint32_t): ;
         uint32_t i32 = swap_bytes32(*((uint32_t *)p));
+
         memcpy(p, &i32, sizeof(uint32_t));
         return;
     case sizeof(uint64_t): ;
@@ -92,17 +94,17 @@ static inline void swap_bytes_var(void *p, size_t num)
     /* NORETURN */
 }
 
-static inline void fix_endianness(globals_t *vars, value_t *data_value)
+static inline void fix_endianness(globals_t *vars, value_t *data_val)
 {
     if (!vars->options.reverse_endianness)
         return;
 
-    if (data_value->flags.u64b)
-        data_value->uint64_value = swap_bytes64(data_value->uint64_value);
-    else if (data_value->flags.u32b)
-        data_value->uint32_value = swap_bytes32(data_value->uint32_value);
-    else if (data_value->flags.u16b)
-        data_value->uint16_value = swap_bytes16(data_value->uint16_value);
+    if (data_val->flags.u64b)
+        data_val->uint64_value = swap_bytes64(data_val->uint64_value);
+    else if (data_val->flags.u32b)
+        data_val->uint32_value = swap_bytes32(data_val->uint32_value);
+    else if (data_val->flags.u16b)
+        data_val->uint16_value = swap_bytes16(data_val->uint16_value);
 }
 
 #endif /* ENDIANNESS_H */

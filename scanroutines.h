@@ -72,7 +72,8 @@ typedef enum {
  *
  * return the number of bytes needed to store old_value, 0 for not matched
  */
-typedef int (*scan_routine_t)(const value_t *new_value, const value_t *old_value, const uservalue_t *user_value, match_flags *saveflag, void *address);
+typedef int (*scan_routine_t)(const value_t *, const value_t *,
+                              const uservalue_t *, match_flags *, void *);
 extern scan_routine_t sm_scan_routine;
 
 /* 
@@ -81,8 +82,8 @@ extern scan_routine_t sm_scan_routine;
  *
  * return whether a proper routine has been found
  */
-bool sm_choose_scanroutine(scan_data_type_t dt, scan_match_type_t mt);
+bool sm_choose_scanroutine(scan_data_type_t, scan_match_type_t);
 
-scan_routine_t sm_get_scanroutine(scan_data_type_t dt, scan_match_type_t mt);
+scan_routine_t sm_get_scanroutine(scan_data_type_t, scan_match_type_t);
 
 #endif /* SCANROUTINES_H */

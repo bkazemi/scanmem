@@ -35,7 +35,7 @@
 
 ssize_t getline(char **lineptr, size_t *n, FILE *stream)
 {
-    char *lptr;
+    char  *lptr;
     size_t len = 0;
 
     /* Check for invalid arguments */

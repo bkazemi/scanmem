@@ -33,8 +33,8 @@ typedef struct {
 } command_t;
 
 
-bool sm_registercommand(const char *command, void *handler, list_t *commands,
-                        char *shortdoc, char *longdoc);
-bool sm_execcommand(globals_t *vars, const char *commandline);
+bool sm_registercommand(const char *, void *, list_t *,
+                        char *, char *);
+bool sm_execcommand(globals_t *, const char *);
 
 #endif /* COMMANDS_H */

@@ -99,14 +99,14 @@ static void parse_parameter(int argc, char **argv)
         {"debug",   0, NULL, 'd'}, /* enable debug mode */
         {NULL,      0, NULL,  0 },
     };
-    char *end;
-    int optindex;
-    bool done = false;
+    char      *end;
+    int        opt_idx;
+    bool       done = false;
     globals_t *vars = &sm_globals;
 
     /* process command line */
     while (!done) {
-        switch (getopt_long(argc, argv, "vhdp:", longopts, &optindex)) {
+        switch (getopt_long(argc, argv, "vhdp:", longopts, &opt_idx)) {
         case 'p':
             vars->target = (pid_t) strtoul(optarg, &end, 0);
 
@@ -153,7 +153,7 @@ int main(int argc, char **argv)
 {
     parse_parameter(argc, argv);
 
-    int ret = EXIT_SUCCESS;
+    int        ret  = EXIT_SUCCESS;
     globals_t *vars = &sm_globals;
 
     printcopyright(stderr);

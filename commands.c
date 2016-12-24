@@ -48,23 +48,23 @@
  * of commands, but this way I can add aliases and macros at runtime
  * (planned in future).
  */
-bool sm_registercommand(const char *command, void *handler, list_t *commands,
+bool sm_registercommand(const char *cmd, void *handler, list_t *cmds,
                         char *shortdoc, char *longdoc)
 {
     command_t *data;
 
-    assert(commands != NULL);
+    assert(cmds != NULL);
 
-    if (command != NULL) {
-        if ((data = malloc(sizeof(command_t) + strlen(command) + 1)) == NULL) {
+    if (cmd != NULL) {
+        if ((data = malloc(sizeof(command_t) + strlen(cmd) + 1)) == NULL) {
             show_error("sorry, there was a memory allocation problem.\n");
             return false;
         }
 
-        data->command = (char *) data + sizeof(*data);
+        data->command = (char *)data + sizeof(*data);
 
         /* command points to the extra space allocated after data */
-        strcpy(data->command, command);
+        strcpy(data->command, cmd);
     } else {
         if ((data = malloc(sizeof(command_t))) == NULL) {
             show_error("sorry, there was a memory allocation problem.\n");
@@ -79,7 +79,7 @@ bool sm_registercommand(const char *command, void *handler, list_t *commands,
     data->longdoc  = longdoc;
 
     /* add new command to list */
-    if (l_append(commands, NULL, data) == -1) {
+    if (l_append(cmds, NULL, data) == -1) {
         free(data);
         return false;
     }
@@ -87,24 +87,24 @@ bool sm_registercommand(const char *command, void *handler, list_t *commands,
     return true;
 }
 
-bool sm_execcommand(globals_t *vars, const char *commandline)
+bool sm_execcommand(globals_t *vars, const char *cmdline)
 {
-    unsigned argc;
-    char *str = NULL, *tok = NULL;
-    char **argv = NULL;
-    command_t *err = NULL;
-    bool ret = false;
-    list_t *commands = vars->commands;
-    element_t *np = NULL;
+    unsigned   argc;
+    char      *str  = NULL, *tok = NULL;
+    char     **argv = NULL;
+    command_t *err  = NULL;
+    bool       ret  = false;
+    list_t    *cmds = vars->commands;
+    element_t *np   = NULL;
 
-    assert(commandline != NULL);
+    assert(cmdline  != NULL);
     assert(commands != NULL);
 
-    vars->current_cmdline = commandline;
+    vars->current_cmdline = cmdline;
 
     np = commands->head;
 
-    str = tok = strdupa(commandline);
+    str = tok = strdupa(cmdline);
 
     /* tokenize command line into an argument vector */
     for (argc = 0; tok; argc++, str = NULL) {
@@ -131,16 +131,16 @@ bool sm_execcommand(globals_t *vars, const char *commandline)
     
     /* search commands list for appropriate handler */
     while (np) {
-        command_t *command = np->data;
+        command_t *cmd = np->data;
 
         /* check if this command matches */
 
-        if (command->command == NULL) {
+        if (cmd->command == NULL) {
             /* the default handler has a NULL command */
-            err = command;
-        } else if (strcasecmp(argv[0], command->command) == 0) {
+            err = cmd;
+        } else if (!strcasecmp(argv[0], cmd->command)) {
             /* match found, execute handler */
-            ret = command->handler(vars, argv, argc - 1);
+            ret = cmd->handler(vars, argv, argc - 1);
 
             free(argv);
             return ret;

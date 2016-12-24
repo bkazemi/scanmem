@@ -32,7 +32,7 @@ rl_completion_func_t *rl_attempted_completion_function = NULL;
  * always return NULL to show that there are no completions
  */
 char **rl_completion_matches(const char *text, rl_compentry_func_t
-                             *entry_function)
+                             *entry_func)
 {
     return NULL;
 }
@@ -42,8 +42,8 @@ char **rl_completion_matches(const char *text, rl_compentry_func_t
  */
 char *readline(const char *prompt)
 {
-    char *line = NULL;
-    size_t n = 0;
+    char   *line = NULL;
+    size_t  n    = 0;
     ssize_t bytes_read;
 
     printf("%s", prompt);

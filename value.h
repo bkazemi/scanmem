@@ -37,28 +37,21 @@
  * this is memory-efficient but DANGEROUS
  * always keep in mind - don't mess with bytearray_length or string_length
  * when scanning for BYTEARRAY of STRING
+ *
+ * Multiple match flags may be selected to mark all the possible data types
+ * for any particular memory location.
  */
 typedef union {
     struct __attribute__ ((packed)) {
-        /* could be an unsigned 8-bit variable (e.g. unsigned char) */
         unsigned  u8b:1;
-        /* could be an unsigned 16-bit variable (e.g. unsigned short) */
         unsigned u16b:1;
-        /* could be an unsigned 32-bit variable (e.g. unsigned int) */
         unsigned u32b:1;
-         /* could be an unsigned 64-bit variable (e.g. unsigned long long) */
         unsigned u64b:1;
-        /* could be a signed 8-bit variable (e.g. signed char) */
         unsigned  s8b:1;
-         /* could be a signed 16-bit variable (e.g. short) */
         unsigned s16b:1;
-        /* could be a signed 32-bit variable (e.g. int) */
         unsigned s32b:1;
-         /* could be a signed 64-bit variable (e.g. long long) */
         unsigned s64b:1;
-        /* could be a 32-bit floating point variable (i.e. float) */
         unsigned f32b:1;
-        /* could be a 64-bit floating point variable (i.e. double) */
         unsigned f64b:1;
 
          /* Whether this value has matched inequalities used the normal way */
@@ -72,11 +65,11 @@ typedef union {
      * I guess uint16_t is enough
      */
     uint16_t bytearray_length;
-    /* used when search for a string */
+    /* used when searching for a string */
     uint16_t string_length;
 } match_flags;
 
-/* this struct describing values retrieved from target memory */
+/* this struct describes values retrieved from target memory */
 typedef struct {
     union {
         int8_t int8_value;
@@ -100,7 +93,7 @@ typedef struct{
     int8_t is_wildcard;
 } bytearray_element_t;
 
-/* this struct describing values provided by users */
+/* this struct describes values provided by users */
 typedef struct {
     int8_t int8_value;
     uint8_t uint8_value;
@@ -120,9 +113,9 @@ typedef struct {
 } uservalue_t;
 
 /*
- * used when output values to user
+ * used when outputting values to the user
  *
- * NOTE: only work for numbers
+ * NOTE: only works for numbers
  */
 void valtostr(const value_t *, char *, size_t);
 /* parse bytearray, the parameter array should be allocated beforehand */

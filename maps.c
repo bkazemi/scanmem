@@ -47,17 +47,17 @@ const char *region_type_names[] = REGION_TYPE_NAMES;
 
 bool sm_readmaps(pid_t target, list_t *regions)
 {
-    FILE *maps;
-    char name[128], *line = NULL;
-    char exelink[128];
-    size_t len = 0;
-    unsigned int code_regions = 0, exe_regions = 0;
-    unsigned long prev_end = 0, load_addr = 0, exe_load = 0;
-    bool is_exe = false;
+    FILE         *maps;
+    char          name[128], *line = NULL;
+    char          exelink[128];
+    size_t        len = 0;
+    unsigned int  code_regions = 0, exe_regions = 0;
+    unsigned long prev_end     = 0, load_addr   = 0, exe_load = 0;
+    bool          is_exe = false;
 
 #define MAX_LINKBUF_SIZE 256
     char linkbuf[MAX_LINKBUF_SIZE], *exename = linkbuf;
-    int  linkbuf_size;
+    int  linkbuf_sz
     char binname[MAX_LINKBUF_SIZE];
 
     /* check if target is valid */
@@ -77,22 +77,22 @@ bool sm_readmaps(pid_t target, list_t *regions)
 
     /* get executable name */
     snprintf(exelink, sizeof(exelink), "/proc/%u/exe", target);
-    linkbuf_size = readlink(exelink, exename, MAX_LINKBUF_SIZE - 1);
-    if (linkbuf_size > 0)
-    {
-        exename[linkbuf_size] = 0;
-    } else {
-        /* readlink may fail for special processes, just treat as empty in
-           order not to miss those regions */
+    linkbuf_sz = readlink(exelink, exename, MAX_LINKBUF_SIZE - 1);
+    if (linkbuf_sz > 0)
+        exename[linkbuf_sz] = 0;
+    else
+        /*
+         * readlink may fail for special processes, just treat as empty in
+         * order not to miss those regions
+         */
         exename[0] = 0;
-    }
 
     /* read every line of the maps file */
     while (getline(&line, &len, maps) != -1) {
         unsigned long start, end;
-        region_t *map = NULL;
-        char read, write, exec, cow, *filename;
-        int offset, dev_major, dev_minor, inode;
+        region_t     *map = NULL;
+        char          read, write, exec, cow, *filename;
+        int           offset, dev_major, dev_minor, inode;
         region_type_t type = REGION_TYPE_MISC;
 
         /* slight overallocation */
@@ -231,12 +231,12 @@ bool sm_readmaps(pid_t target, list_t *regions)
                 }
 
                 /* initialize this region */
-                map->flags.read = true;
+                map->flags.read  = true;
                 map->flags.write = true;
-                map->start = (void *) start;
-                map->size = (unsigned long) (end - start);
-                map->type = type;
-                map->load_addr = load_addr;
+                map->start       = (void *)start;
+                map->size        = (unsigned long)(end - start);
+                map->type        = type;
+                map->load_addr   = load_addr;
 
                 /* setup other permissions */
                 map->flags.exec    = (exec == 'x');

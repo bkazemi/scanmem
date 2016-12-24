@@ -29,9 +29,8 @@ extern int rl_attempted_completion_over;
 extern const char *rl_readline_name;
 extern rl_completion_func_t *rl_attempted_completion_function;
 
-char **rl_completion_matches(const char *text, rl_compentry_func_t
-                             *entry_function);
-char *readline(const char *prompt);
-void add_history(const char *line);
+char **rl_completion_matches(const char *, rl_compentry_func_t *);
+char *readline(const char *);
+void add_history(const char *);
 
 #endif /* READLINE_H */

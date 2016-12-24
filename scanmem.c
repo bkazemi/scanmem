@@ -77,11 +77,11 @@ globals_t sm_globals = {
  */
 static void sighandler(int n)
 {
-    const char err_msg[] = "error: \nKilled by signal ";
-    const char msg_end[] = ".\n";
-    char num_str[4] = {0};
-    ssize_t num_size;
-    ssize_t wbytes;
+    const char err_msg[]  = "error: \nKilled by signal ";
+    const char msg_end[]  = ".\n";
+    char       num_str[4] = {0};
+    ssize_t    num_sz;
+    ssize_t    wbytes;
 
     wbytes = write(STDERR_FILENO, err_msg, sizeof(err_msg) - 1);
     if (wbytes != sizeof(err_msg) - 1)
@@ -90,17 +90,17 @@ static void sighandler(int n)
     /* manual int to str conversion */
     if (n < 10) {
         num_str[0] = (char)(0x30 + n);
-        num_size = 1;
+        num_sz = 1;
     } else if (n >= 100) {
         goto out;
     } else {
         num_str[0] = (char)(0x30 + n / 10);
         num_str[1] = (char)(0x30 + n % 10);
-        num_size = 2;
+        num_sz = 2;
     }
 
-    wbytes = write(STDERR_FILENO, num_str, num_size);
-    if (wbytes != num_size)
+    wbytes = write(STDERR_FILENO, num_str, num_sz);
+    if (wbytes != num_sz)
         goto out;
 
     wbytes = write(STDERR_FILENO, msg_end, sizeof(msg_end) - 1);
@@ -226,9 +226,9 @@ void sm_set_backend(void)
     sm_globals.options.backend = 1;
 }
 
-void sm_backend_exec_cmd(const char *commandline)
+void sm_backend_exec_cmd(const char *cmdline)
 {
-    sm_execcommand(&sm_globals, commandline);
+    sm_execcommand(&sm_globals, cmdline);
     fflush(stdout);
     fflush(stderr);
 }

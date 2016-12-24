@@ -55,7 +55,7 @@ void l_destroy(list_t * list)
 /*
  * add a new element to the list
  */
-int l_append(list_t * list, element_t * element, void *data)
+int l_append(list_t * list, element_t * elem, void *data)
 {
     element_t *n = calloc(1, sizeof(element_t));
 
@@ -65,22 +65,19 @@ int l_append(list_t * list, element_t * element, void *data)
     n->data = data;
 
     /* insert at head or tail */
-    if (element == NULL) {
-        if (list->size == 0) {
+    if (elem == NULL) {
+        if (list->size == 0)
             list->tail = n;
-        }
 
-        n->next = list->head;
+        n->next    = list->head;
         list->head = n;
     } else {
-
         /* insertion in the middle of a list */
-        if (element->next == NULL) {
+        if (elem->next == NULL)
             list->tail = n;
-        }
 
-        n->next = element->next;
-        element->next = n;
+        n->next    = elem->next;
+        elem->next = n;
     }
 
     list->size++;
@@ -93,7 +90,7 @@ int l_append(list_t * list, element_t * element, void *data)
  */
 int l_concat(list_t *dst, list_t **src)
 {
-    void *data;
+    void      *data;
     element_t *n;
 
     n = (*src)->head;
@@ -116,34 +113,29 @@ int l_concat(list_t *dst, list_t **src)
 /* 
  * remove the element at element->next
  */
-void l_remove(list_t * list, element_t * element, void **data)
+void l_remove(list_t * list, element_t * elem, void **data)
 {
     element_t *o;
 
     /* remove from head */
-    if (element == NULL) {
-        if (data) {
+    if (elem == NULL) {
+        if (data)
             *data = list->head->data;
-        }
 
         o = list->head;
 
         list->head = o->next;
 
-        if (list->size == 1) {
+        if (list->size == 1)
             list->tail = NULL;
-        }
     } else {
-        if (data) {
-            *data = element->next->data;
-        }
+        if (data)
+            *data = elem->next->data;
 
-        o = element->next;
+        o = elem->next;
 
-
-        if ((element->next = element->next->next) == NULL) {
-            list->tail = element;
-        }
+        if ((elem->next = elem->next->next) == NULL)
+            list->tail = elem;
     }
 
     if (data == NULL)
